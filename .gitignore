@@ -1,0 +1,9 @@
+.idea/
+
+venv/
+__pycache__/
+*.pyc
+
+content.xml
+game.whirligig
+db.sqlite3
