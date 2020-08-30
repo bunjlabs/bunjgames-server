@@ -12,10 +12,15 @@ class BadFormatException(Exception):
     pass
 
 
+class BadStateException(Exception):
+    pass
+
+
 class Game(models.Model):
     STATE_START = 'start'
     STATE_INTRO = 'intro'
     STATE_QUESTIONS = 'questions'
+    STATE_QUESTION_WHIRLIGIG = 'question_whirligig'
     STATE_QUESTION_START = 'question_start'
     STATE_QUESTION_DISCUSSION = 'question_discussion'
     STATE_QUESTION_END = 'question_end'
@@ -31,10 +36,15 @@ class Game(models.Model):
         (STATE_END, STATE_END),
     )
 
+    MAX_SCORE = 6
+
     token = models.CharField(max_length=25, unique=True)
     created = models.DateTimeField(auto_now_add=True)
     expired = models.DateTimeField()
-    current_question_number = models.IntegerField(default=None, null=True)
+    connoisseurs_score = models.IntegerField(default=0)
+    viewers_score = models.IntegerField(default=0)
+    cur_item = models.IntegerField(default=None, null=True)
+    cur_question = models.IntegerField(default=None, null=True)
     state = models.CharField(max_length=25, choices=CHOICES_STATE, default=STATE_START, blank=True)
     changes_hash = models.CharField(max_length=255, default='', blank=True)
 
@@ -93,6 +103,8 @@ class Game(models.Model):
                     answer_audio=answer_xml.find('audio').text,
                     answer_video=answer_xml.find('video').text,
                 )
+
+    def print(self):
         for item in self.items.iterator():
             print('Item №{}: name={}, type={}'.format(item.number, item.name, item.type))
             for question in item.questions.iterator():
@@ -109,6 +121,46 @@ class Game(models.Model):
                 print('\t\timage: {}'.format(question.answer_image))
                 print('\t\taudio: {}'.format(question.answer_audio))
                 print('\t\tvideo: {}'.format(question.answer_video))
+
+    def randomise_next_question(self):
+        return random.choice(self.items.filter(is_processed=False).values_list('number', flat=True))
+
+    @transaction.atomic(savepoint=False)
+    def next_state(self):
+        if self.state == self.STATE_START:
+            self.state = self.STATE_INTRO
+        elif self.state == self.STATE_INTRO:
+            self.state = self.STATE_QUESTIONS
+        elif self.state == self.STATE_QUESTIONS:
+            self.cur_item = self.randomise_next_question()
+            self.cur_question = 0
+            self.state = self.STATE_QUESTION_WHIRLIGIG
+        elif self.state == self.STATE_QUESTION_WHIRLIGIG:
+            self.state = self.STATE_QUESTION_START
+        elif self.state == self.STATE_QUESTION_START:
+            self.state = self.STATE_QUESTION_DISCUSSION
+        elif self.state == self.STATE_QUESTION_DISCUSSION:
+            self.state = self.STATE_QUESTION_END
+        elif self.state == self.STATE_QUESTION_END:
+            item = self.items.get(number=self.cur_item)
+            question = item.questions.get(number=self.cur_question)
+            question.is_processed = True
+            question.save(update_fields=['is_processed'])
+            if self.cur_question == item.questions.count() - 1:
+                item.is_processed = True
+                item.save(update_fields=['is_processed'])
+                self.cur_item = None
+                self.cur_question = None
+                if self.connoisseurs_score == self.MAX_SCORE and self.viewers_score == self.MAX_SCORE:
+                    self.state = self.STATE_END
+                else:
+                    self.state = self.STATE_QUESTIONS
+            else:
+                self.cur_question += 1
+                self.state = self.STATE_QUESTION_START
+        else:
+            raise BadStateException()
+        self.save(update_fields=['state', 'cur_item', 'cur_question'])
 
     class Meta:
         indexes = [

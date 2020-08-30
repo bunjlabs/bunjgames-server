@@ -20,7 +20,7 @@ class TokenContextMixin:
     def token(self):
         serializer = TokenSerializer(data=self.request.query_params)
         serializer.is_valid(raise_exception=True)
-        return serializer.validated_data['token']
+        return serializer.validated_data.get('token')
 
     def get_serializer_context(self):
         context = dict(token=self.token)
@@ -60,4 +60,15 @@ class CreateGameAPI(APIView):
         if not os.listdir(os.path.join(settings.MEDIA_ROOT, game.token)):
             os.rmdir(os.path.join(settings.MEDIA_ROOT, game.token))
 
+        return Response(GameSerializer().to_representation(game))
+
+
+class NextStateAPI(APIView):
+    serializer_class = GameSerializer
+
+    @transaction.atomic()
+    def post(self, request):
+        game = Game.objects.filter(expired__gte=timezone.now()).get(token=request.data.get('token'))
+        game.next_state()
+        game.register_changes()
         return Response(GameSerializer().to_representation(game))
