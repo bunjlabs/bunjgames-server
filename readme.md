@@ -13,6 +13,7 @@ content.xml structure:
         <item>
             <number>1</number>  <!-- integer -->
             <name>1</name>  <!-- string -->
+            <description>question</description>  <!-- string -->
             <type>standard</type>  <!-- standard, blitz, superblitz -->
             <questions> <!-- 1 for standart, 3 for blitz and superblitz -->
                 <question>

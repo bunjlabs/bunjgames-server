@@ -33,6 +33,7 @@ class QuestionSerializer(serializers.Serializer):
 class GameItemSerializer(serializers.Serializer):
     number = serializers.IntegerField()
     name = serializers.CharField()
+    description = serializers.CharField()
     type = serializers.CharField()
     is_processed = serializers.BooleanField()
     questions = QuestionSerializer(many=True)

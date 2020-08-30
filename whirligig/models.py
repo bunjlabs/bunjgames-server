@@ -81,6 +81,7 @@ class Game(models.Model):
             item = GameItem.objects.create(
                 number=item_number,
                 name=item_xml.find('name').text,
+                description='dfsf',  # items_xml.find('description').text,
                 game=self,
                 type=item_xml.find('type').text,
             )
@@ -181,6 +182,7 @@ class GameItem(models.Model):
 
     number = models.IntegerField()
     name = models.CharField(max_length=255)
+    description = models.CharField(max_length=255)
     game = models.ForeignKey(Game, on_delete=models.CASCADE, related_name='items')
     type = models.CharField(max_length=25, choices=CHOICES_TYPE)
     is_processed = models.BooleanField(default=False, blank=True)
