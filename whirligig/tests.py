@@ -69,9 +69,9 @@ class GameAPITestCase(APITestCase):
                 self.assertEqual(response.status_code, status.HTTP_200_OK)
                 self.assertTrue(response.json()['state'] in (Game.STATE_QUESTIONS, Game.STATE_END))
 
-                if response.json()['state'] == Game.STATE_END:
-                    for item_inner in response.json()['items']:
-                        self.assertTrue(item_inner['is_processed'])
-                        for question_inner in item_inner['questions']:
-                            self.assertTrue(question_inner['is_processed'])
+        self.assertEqual(response.json()['state'], Game.STATE_END)
+        for item_inner in response.json()['items']:
+            self.assertTrue(item_inner['is_processed'])
+            for question_inner in item_inner['questions']:
+                self.assertTrue(question_inner['is_processed'])
 

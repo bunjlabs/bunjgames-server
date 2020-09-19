@@ -7,10 +7,11 @@ from django.db import transaction
 from django.utils import timezone
 from django.utils.functional import cached_property
 from rest_framework import generics
+from rest_framework.generics import get_object_or_404
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from whirligig.models import Game
+from whirligig.models import Game, BadStateException
 from whirligig.serializers import GameSerializer, TokenSerializer
 from whirligig.utils import unzip
 
@@ -37,7 +38,7 @@ class GameAPI(TokenContextMixin, generics.RetrieveAPIView):
         return queryset.filter(expired__gte=timezone.now())
 
     def get_object(self):
-        return self.get_queryset().get(token=self.token)
+        return get_object_or_404(self.get_queryset(), token=self.token)
 
 
 class CreateGameAPI(APIView):
@@ -68,7 +69,21 @@ class NextStateAPI(APIView):
 
     @transaction.atomic()
     def post(self, request):
-        game = Game.objects.filter(expired__gte=timezone.now()).get(token=request.data.get('token'))
-        game.next_state()
+        try:
+            game = get_object_or_404(Game.objects.filter(expired__gte=timezone.now()), token=request.data.get('token'))
+            game.next_state()
+            game.register_changes()
+            return Response(GameSerializer().to_representation(game))
+        except BadStateException:
+            return Response(status=400)
+
+
+class ChangeScoreAPI(APIView):
+    serializer_class = GameSerializer
+
+    @transaction.atomic()
+    def post(self, request):
+        game = get_object_or_404(Game.objects.filter(expired__gte=timezone.now()), token=request.data.get('token'))
+        game.change_score(request.data.get('connoisseurs_score'), request.data.get('viewers_score'))
         game.register_changes()
         return Response(GameSerializer().to_representation(game))

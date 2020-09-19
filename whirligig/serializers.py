@@ -45,6 +45,8 @@ class GameItemSerializer(serializers.Serializer):
 class GameSerializer(serializers.Serializer):
     token = serializers.CharField()
     expired = serializers.DateTimeField()
+    connoisseurs_score = serializers.IntegerField()
+    viewers_score = serializers.IntegerField()
     cur_item = serializers.IntegerField()
     cur_question = serializers.IntegerField()
     state = serializers.CharField()

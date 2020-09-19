@@ -69,6 +69,12 @@ class Game(models.Model):
         self.save(update_fields=['changes_hash'])
 
     @transaction.atomic(savepoint=False)
+    def change_score(self, connoisseurs_score, viewers_score):
+        self.connoisseurs_score = connoisseurs_score
+        self.viewers_score = viewers_score
+        self.save(update_fields=['connoisseurs_score', 'viewers_score'])
+
+    @transaction.atomic(savepoint=False)
     def parse(self, filename):
         tree = ElementTree.parse(filename)
 
@@ -152,7 +158,8 @@ class Game(models.Model):
                 item.save(update_fields=['is_processed'])
                 self.cur_item = None
                 self.cur_question = None
-                if self.connoisseurs_score == self.MAX_SCORE and self.viewers_score == self.MAX_SCORE:
+                if self.connoisseurs_score == self.MAX_SCORE or self.viewers_score == self.MAX_SCORE \
+                        or not self.items.filter(is_processed=False).exists():
                     self.state = self.STATE_END
                 else:
                     self.state = self.STATE_QUESTIONS
