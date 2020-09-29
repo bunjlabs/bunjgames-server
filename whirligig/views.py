@@ -4,7 +4,6 @@ from django.conf import settings
 from django.core.files.base import ContentFile
 from django.core.files.storage import default_storage
 from django.db import transaction
-from django.utils import timezone
 from django.utils.functional import cached_property
 from rest_framework import generics
 from rest_framework.generics import get_object_or_404
@@ -34,9 +33,6 @@ class GameAPI(TokenContextMixin, generics.RetrieveAPIView):
     queryset = Game.objects.all()
     serializer_class = GameSerializer
 
-    def filter_queryset(self, queryset):
-        return queryset.filter(expired__gte=timezone.now())
-
     def get_object(self):
         return get_object_or_404(self.get_queryset(), token=self.token)
 
@@ -56,7 +52,6 @@ class CreateGameAPI(APIView):
 
         game.parse(os.path.join(settings.MEDIA_ROOT, game.token, 'content.xml'))
         os.remove(os.path.join(settings.MEDIA_ROOT, game.token, 'content.xml'))
-        game.register_changes()
 
         if not os.listdir(os.path.join(settings.MEDIA_ROOT, game.token)):
             os.rmdir(os.path.join(settings.MEDIA_ROOT, game.token))
@@ -70,9 +65,8 @@ class NextStateAPI(APIView):
     @transaction.atomic()
     def post(self, request):
         try:
-            game = get_object_or_404(Game.objects.filter(expired__gte=timezone.now()), token=request.data.get('token'))
+            game = get_object_or_404(Game.objects.all(), token=request.data.get('token'))
             game.next_state()
-            game.register_changes()
             return Response(GameSerializer().to_representation(game))
         except BadStateException:
             return Response(status=400)
@@ -83,7 +77,6 @@ class ChangeScoreAPI(APIView):
 
     @transaction.atomic()
     def post(self, request):
-        game = get_object_or_404(Game.objects.filter(expired__gte=timezone.now()), token=request.data.get('token'))
+        game = get_object_or_404(Game.objects.all(), token=request.data.get('token'))
         game.change_score(request.data.get('connoisseurs_score'), request.data.get('viewers_score'))
-        game.register_changes()
         return Response(GameSerializer().to_representation(game))

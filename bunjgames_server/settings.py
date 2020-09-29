@@ -28,6 +28,7 @@ INSTALLED_APPS = [
     'rest_framework',
     'whirligig',
     'corsheaders',
+    'channels',
 ]
 
 MIDDLEWARE = [
@@ -61,8 +62,20 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = 'bunjgames_server.wsgi.application'
+ASGI_APPLICATION = "bunjgames_server.routing.application"
 
 CORS_ORIGIN_ALLOW_ALL = True
+
+CHANNEL_REDIS_HOST = os.environ.get('BUNJGAMES_REDIS_HOST', '127.0.0.1')
+CHANNEL_REDIS_PORT = os.environ.get('BUNJGAMES_REDIS_PORT', '6379')
+CHANNEL_LAYERS = {
+    'default': {
+        'BACKEND': 'channels_redis.core.RedisChannelLayer',
+        'CONFIG': {
+            "hosts": [(CHANNEL_REDIS_HOST, int(CHANNEL_REDIS_PORT))],
+        },
+    },
+}
 
 # Database
 # https://docs.djangoproject.com/en/3.1/ref/settings/#databases
@@ -92,6 +105,28 @@ AUTH_PASSWORD_VALIDATORS = [
         'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',
     },
 ]
+
+if DEBUG:
+    LOGGING = {
+        'version': 1,
+        'disable_existing_loggers': False,
+        'handlers': {
+            'console': {
+                'class': 'logging.StreamHandler',
+            },
+        },
+        'root': {
+            'handlers': ['console'],
+            'level': 'DEBUG',
+        },
+        'loggers': {
+            'django': {
+                'handlers': ['console'],
+                'level': os.getenv('DJANGO_LOG_LEVEL', 'INFO'),
+                'propagate': False,
+            },
+        },
+    }
 
 
 # Internationalization

@@ -46,7 +46,6 @@ class Game(models.Model):
     cur_item = models.IntegerField(default=None, null=True)
     cur_question = models.IntegerField(default=None, null=True)
     state = models.CharField(max_length=25, choices=CHOICES_STATE, default=STATE_START, blank=True)
-    changes_hash = models.CharField(max_length=255, default='', blank=True)
 
     @staticmethod
     @transaction.atomic(savepoint=False)
@@ -62,11 +61,6 @@ class Game(models.Model):
             token=token,
             expired=timezone.now() + datetime.timedelta(hours=12)
         )
-
-    @transaction.atomic(savepoint=False)
-    def register_changes(self):
-        self.changes_hash = uuid.uuid4().hex
-        self.save(update_fields=['changes_hash'])
 
     @transaction.atomic(savepoint=False)
     def change_score(self, connoisseurs_score, viewers_score):

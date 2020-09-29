@@ -50,7 +50,6 @@ class GameSerializer(serializers.Serializer):
     cur_item = serializers.IntegerField()
     cur_question = serializers.IntegerField()
     state = serializers.CharField()
-    changes_hash = serializers.CharField()
     items = GameItemSerializer(many=True)
 
     class Meta:

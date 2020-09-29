@@ -24,7 +24,7 @@ class Migration(migrations.Migration):
                 ('cur_item', models.IntegerField(default=None, null=True)),
                 ('cur_question', models.IntegerField(default=None, null=True)),
                 ('state', models.CharField(blank=True, choices=[('start', 'start'), ('intro', 'intro'), ('questions', 'questions'), ('question_start', 'question_start'), ('question_discussion', 'question_discussion'), ('question_end', 'question_end'), ('end', 'end')], default='start', max_length=25)),
-                ('changes_hash', models.CharField(blank=True, default='', max_length=255)),
+                ('hash', models.CharField(blank=True, default='', max_length=255)),
             ],
         ),
         migrations.CreateModel(

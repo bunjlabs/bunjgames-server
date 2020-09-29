@@ -1,3 +1,5 @@
 django
 djangorestframework
 django-cors-headers
+channels
+channels-redis
