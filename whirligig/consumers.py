@@ -17,7 +17,10 @@ class WhirligigConsumer(WebsocketConsumer):
 
     routes = dict(
         next_state=lambda game: game.next_state(),
-        change_score=lambda game, connoisseurs_score, viewers_score: game.change_score(connoisseurs_score, viewers_score)
+        change_score=lambda game, connoisseurs_score, viewers_score: game.change_score(connoisseurs_score,
+                                                                                       viewers_score),
+        change_timer=lambda game, paused: game.change_timer(paused),
+        answer_correct=lambda game, is_correct: game.answer_correct(is_correct)
     )
 
     def connect(self):
@@ -31,7 +34,10 @@ class WhirligigConsumer(WebsocketConsumer):
                 self.channel_name
             )
             self.accept()
-            self.send(text_data=json.dumps(GameSerializer().to_representation(game)))
+            self.send(text_data=json.dumps({
+                'type': 'game',
+                'message': GameSerializer().to_representation(game)
+            }))
         except ObjectDoesNotExist:
             logger.debug('Bad token')
             self.close()
@@ -48,19 +54,23 @@ class WhirligigConsumer(WebsocketConsumer):
         game = Game.objects.get(token=self.token)
 
         try:
-            self.routes[data['method']](game, **data['params'])
+            if data['method'] == 'intercom':
+                async_to_sync(self.channel_layer.group_send)(self.room_name, {
+                    'type': 'intercom',
+                    'message': data['message']
+                })
+            else:
+                self.routes[data['method']](game, **data['params'])
 
-            async_to_sync(self.channel_layer.group_send)(
-                self.room_name,
-                {
-                    'type': 'message',
-                    'game': json.dumps(
-                        GameSerializer().to_representation(game)
-                    )
-                }
-            )
+                async_to_sync(self.channel_layer.group_send)(self.room_name, {
+                    'type': 'game',
+                    'message': GameSerializer().to_representation(game)
+                })
         except (KeyError, TypeError, ValueError) as e:
             logger.warning('Bad request: %s' % str(e))
 
-    def message(self, event):
-        self.send(text_data=event['game'])
+    def intercom(self, event):
+        self.send(text_data=json.dumps(event))
+
+    def game(self, event):
+        self.send(text_data=json.dumps(event))
