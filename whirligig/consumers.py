@@ -16,7 +16,7 @@ class WhirligigConsumer(WebsocketConsumer):
     room_name = None
 
     routes = dict(
-        next_state=lambda game: game.next_state(),
+        next_state=lambda game, from_state: game.next_state(from_state),
         change_score=lambda game, connoisseurs_score, viewers_score: game.change_score(connoisseurs_score,
                                                                                        viewers_score),
         change_timer=lambda game, paused: game.change_timer(paused),

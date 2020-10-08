@@ -47,8 +47,10 @@ class CreateGameAPI(APIView):
         data = request.data['game']
         path = default_storage.save(os.path.join(game.token, 'game'), ContentFile(data.read()))
         file = os.path.join(settings.MEDIA_ROOT, path)
-        unzip(file, os.path.join(settings.MEDIA_ROOT, game.token))
-        os.remove(file)
+        try:
+            unzip(file, os.path.join(settings.MEDIA_ROOT, game.token))
+        finally:
+            os.remove(file)
 
         game.parse(os.path.join(settings.MEDIA_ROOT, game.token, 'content.xml'))
         os.remove(os.path.join(settings.MEDIA_ROOT, game.token, 'content.xml'))

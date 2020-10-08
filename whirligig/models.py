@@ -179,7 +179,9 @@ class Game(models.Model):
         return random.choice(self.items.filter(is_processed=False).values_list('number', flat=True))
 
     @transaction.atomic(savepoint=False)
-    def next_state(self):
+    def next_state(self, from_state=None):
+        if from_state is not None and self.state != from_state:
+            return
         if self.state == self.STATE_START:
             self.state = self.STATE_INTRO
         elif self.state == self.STATE_INTRO:
