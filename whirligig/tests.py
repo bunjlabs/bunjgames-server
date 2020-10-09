@@ -1,22 +1,22 @@
-from django.test import TestCase
-from django.urls import reverse
-from rest_framework import status
-from rest_framework.test import APITestCase
+# from django.test import TestCase
+# from django.urls import reverse
+# from rest_framework import status
+# from rest_framework.test import APITestCase
+#
+# from whirligig.models import Game
 
-from whirligig.models import Game
 
-
-class GameXMLParsingTestCase(TestCase):
-
-    def test_parse_game_xml(self):
-        game = Game.new()
-        game.parse('content.xml')
-        self.assertGreater(game.items.count(), 0)
-        for item in game.items.iterator():
-            self.assertGreater(item.questions.count(), 0)
-            for question in item.questions.iterator():
-                self.assertGreater(len(question.description), 0)
-                self.assertGreater(len(question.answer_description), 0)
+# class GameXMLParsingTestCase(TestCase):
+#
+#     def test_parse_game_xml(self):
+#         game = Game.new()
+#         game.parse('content.xml')
+#         self.assertGreater(game.items.count(), 0)
+#         for item in game.items.iterator():
+#             self.assertGreater(item.questions.count(), 0)
+#             for question in item.questions.iterator():
+#                 self.assertGreater(len(question.description), 0)
+#                 self.assertGreater(len(question.answer_description), 0)
 
 
 # class GameAPITestCase(APITestCase):
