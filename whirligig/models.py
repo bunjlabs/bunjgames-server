@@ -111,6 +111,7 @@ class Game(models.Model):
                 self.cur_question = None
                 if self.connoisseurs_score == self.MAX_SCORE or self.viewers_score == self.MAX_SCORE \
                         or not self.items.filter(is_processed=False).exists():
+                    self.expired = timezone.now() + datetime.timedelta(minutes=10)
                     self.state = self.STATE_END
                 else:
                     self.state = self.STATE_QUESTION_END
