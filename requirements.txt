@@ -4,3 +4,4 @@ django-cors-headers
 channels
 channels-redis
 psycopg2
+daphne

@@ -110,27 +110,24 @@ AUTH_PASSWORD_VALIDATORS = [
     },
 ]
 
-if DEBUG:
-    LOGGING = {
-        'version': 1,
-        'disable_existing_loggers': False,
-        'handlers': {
-            'console': {
-                'class': 'logging.StreamHandler',
-            },
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
         },
-        'root': {
-            'handlers': ['console'],
+        'file': {
             'level': 'DEBUG',
+            'class': 'logging.FileHandler',
+            'filename': './logs/server.log',
         },
-        'loggers': {
-            'django': {
-                'handlers': ['console'],
-                'level': os.getenv('DJANGO_LOG_LEVEL', 'INFO'),
-                'propagate': False,
-            },
-        },
-    }
+    },
+    'root': {
+        'handlers': ['console'],
+        'level': 'INFO',
+    },
+}
 
 
 # Internationalization

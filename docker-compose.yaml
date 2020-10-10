@@ -1,0 +1,47 @@
+version: '3.0'
+services:
+  redis:
+    image: redis
+    networks:
+      - overlay
+    ports:
+      - 6379:6379
+  db:
+    image: postgres
+    volumes:
+      - db-data:/var/lib/postgresql/data
+      - ./media:/srv/server/media
+      - ./logs:/srv/server/logs
+    environment:
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=bunjgames
+    ports:
+      - 5432:5432
+    networks:
+      - overlay
+#  server:
+#    build:
+#      context: .
+#    environment:
+#      - BUNJGAMES_SECRET_KEY=af3D3r32r43tfw234fdfgff^h%&fhf77&^&TR%^&F&6
+#      - BUNJGAMES_DEBUG=false
+#      - BUNJGAMES_REDIS_HOST=redis
+#      - BUNJGAMES_REDIS_PORT=6379
+#      - BUNJGAMES_DATABASE_NAME=bunjgames
+#      - BUNJGAMES_DATABASE_USER=postgres
+#      - BUNJGAMES_DATABASE_PASSWORD=postgres
+#      - BUNJGAMES_DATABASE_HOST=db
+#      - BUNJGAMES_DATABASE_PORT=5432
+#    ports:
+#      - 8000:80
+#    networks:
+#      - overlay
+#    depends_on:
+#      - db
+#      - redis
+
+volumes:
+  db-data:
+
+networks:
+  overlay:

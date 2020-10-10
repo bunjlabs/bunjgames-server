@@ -52,8 +52,8 @@ class Game(models.Model):
     cur_question = models.IntegerField(default=None, null=True)
     state = models.CharField(max_length=25, choices=CHOICES_STATE, default=STATE_START, blank=True)
     timer_paused = models.BooleanField(default=True)
-    timer_paused_time = models.IntegerField(default=0)
-    timer_time = models.IntegerField(default=0)
+    timer_paused_time = models.BigIntegerField(default=0)
+    timer_time = models.BigIntegerField(default=0)
 
     def get_curr_item(self):
         return self.items.get(number=self.cur_item)
