@@ -117,11 +117,6 @@ LOGGING = {
         'console': {
             'class': 'logging.StreamHandler',
         },
-        'file': {
-            'level': 'DEBUG',
-            'class': 'logging.FileHandler',
-            'filename': './logs/server.log',
-        },
     },
     'root': {
         'handlers': ['console'],
