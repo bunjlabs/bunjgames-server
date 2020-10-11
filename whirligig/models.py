@@ -48,6 +48,7 @@ class Game(models.Model):
     expired = models.DateTimeField()
     connoisseurs_score = models.IntegerField(default=0)
     viewers_score = models.IntegerField(default=0)
+    cur_random_item = models.IntegerField(default=None, null=True)
     cur_item = models.IntegerField(default=None, null=True)
     cur_question = models.IntegerField(default=None, null=True)
     state = models.CharField(max_length=25, choices=CHOICES_STATE, default=STATE_START, blank=True)
@@ -107,6 +108,7 @@ class Game(models.Model):
             if not is_correct or self.cur_question == item.questions.count() - 1:
                 item.is_processed = True
                 item.save()
+                self.cur_random_item = None
                 self.cur_item = None
                 self.cur_question = None
                 if self.connoisseurs_score == self.MAX_SCORE or self.viewers_score == self.MAX_SCORE \
@@ -176,8 +178,20 @@ class Game(models.Model):
                 print('\t\taudio: {}'.format(question.answer_audio))
                 print('\t\tvideo: {}'.format(question.answer_video))
 
-    def randomise_next_question(self):
-        return random.choice(self.items.filter(is_processed=False).values_list('number', flat=True))
+    def randomise_next_item(self):
+        def normalize(a, norm):
+            normalized = a % norm
+            return norm + normalized if normalized < 0 else normalized
+
+        items = self.items.all()
+        random_next_item_number = random.choice(items.values_list('number', flat=True))
+        if items.filter(is_processed=False).count() == 0:
+            raise BadStateException()
+
+        cur_number = random_next_item_number
+        while items[cur_number].is_processed:
+            cur_number = normalize(cur_number + 1, items.count())
+        return random_next_item_number, cur_number
 
     @transaction.atomic(savepoint=False)
     def next_state(self, from_state=None):
@@ -188,7 +202,7 @@ class Game(models.Model):
         elif self.state == self.STATE_INTRO:
             self.state = self.STATE_QUESTIONS
         elif self.state == self.STATE_QUESTIONS:
-            self.cur_item = self.randomise_next_question()
+            self.cur_random_item, self.cur_item = self.randomise_next_item()
             self.cur_question = 0
             self.state = self.STATE_QUESTION_WHIRLIGIG
         elif self.state == self.STATE_QUESTION_WHIRLIGIG:
@@ -208,7 +222,7 @@ class Game(models.Model):
         elif self.state == self.STATE_RIGHT_ANSWER:
             pass
         elif self.state == self.STATE_QUESTION_END:
-            self.cur_item = self.randomise_next_question()
+            self.cur_random_item, self.cur_item = self.randomise_next_item()
             self.cur_question = 0
             self.state = self.STATE_QUESTION_WHIRLIGIG
         elif self.state == self.STATE_END:
@@ -216,7 +230,7 @@ class Game(models.Model):
         else:
             raise BadStateException()
         self.save(update_fields=[
-            'state', 'cur_item', 'cur_question', 'timer_paused', 'timer_time', 'timer_paused_time'
+            'state', 'cur_random_item', 'cur_item', 'cur_question', 'timer_paused', 'timer_time', 'timer_paused_time'
         ])
 
     class Meta:
@@ -243,6 +257,9 @@ class GameItem(models.Model):
     type = models.CharField(max_length=25, choices=CHOICES_TYPE)
     is_processed = models.BooleanField(default=False, blank=True)
 
+    class Meta:
+        ordering = ['number']
+
     def get_time(self):
         return 60 if self.type == self.TYPE_STANDARD else 20
 
@@ -263,3 +280,6 @@ class Question(models.Model):
     answer_image = models.CharField(max_length=255, null=True)
     answer_audio = models.CharField(max_length=255, null=True)
     answer_video = models.CharField(max_length=255, null=True)
+
+    class Meta:
+        ordering = ['number']

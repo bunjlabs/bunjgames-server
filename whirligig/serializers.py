@@ -50,6 +50,7 @@ class GameSerializer(serializers.Serializer):
     viewers_score = serializers.IntegerField()
     cur_item = SerializerMethodField()
     cur_question = SerializerMethodField()
+    cur_random_item_idx = serializers.IntegerField(source='cur_random_item')
     cur_item_idx = serializers.IntegerField(source='cur_item')
     cur_question_idx = serializers.IntegerField(source='cur_question')
     state = serializers.CharField()
