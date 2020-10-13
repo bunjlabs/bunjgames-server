@@ -1,7 +1,11 @@
 import os
 import shutil
+import string
 import zipfile
 from urllib.parse import unquote
+
+from django.conf import settings
+from hashids import Hashids
 
 
 def unzip(filename, extract_dir):
@@ -18,3 +22,10 @@ def unzip(filename, extract_dir):
             if not entry.is_dir():  # file
                 with archive.open(entry) as source, open(target, 'wb') as dest:
                     shutil.copyfileobj(source, dest)
+
+
+hashids = Hashids(salt=settings.SECRET_KEY, min_length=6, alphabet=string.ascii_uppercase + string.digits)
+
+
+def generate_token(id):
+    return hashids.encode(id)

@@ -8,6 +8,8 @@ from xml.etree import ElementTree
 
 from django.db import models, transaction
 
+from common.utils import generate_token
+
 
 class BadFormatException(Exception):
     pass
@@ -43,7 +45,7 @@ class Game(models.Model):
 
     MAX_SCORE = 6 + 0
 
-    token = models.CharField(max_length=25, unique=True)
+    token = models.CharField(max_length=25, null=True, blank=True, db_index=True)
     created = models.DateTimeField(auto_now_add=True)
     expired = models.DateTimeField()
     connoisseurs_score = models.IntegerField(default=0)
@@ -51,7 +53,7 @@ class Game(models.Model):
     cur_random_item = models.IntegerField(default=None, null=True)
     cur_item = models.IntegerField(default=None, null=True)
     cur_question = models.IntegerField(default=None, null=True)
-    state = models.CharField(max_length=25, choices=CHOICES_STATE, default=STATE_START, blank=True)
+    state = models.CharField(max_length=25, choices=CHOICES_STATE, default=STATE_START)
     timer_paused = models.BooleanField(default=True)
     timer_paused_time = models.BigIntegerField(default=0)
     timer_time = models.BigIntegerField(default=0)
@@ -59,20 +61,18 @@ class Game(models.Model):
     def get_curr_item(self):
         return self.items.get(number=self.cur_item)
 
+    def generate_token(self):
+        self.token = generate_token(self.pk)
+        self.save(update_fields=['token'])
+
     @staticmethod
     @transaction.atomic(savepoint=False)
     def new():
-        token = None
-        for i in range(100):
-            token = ''.join(random.choice(string.ascii_uppercase + string.digits) for _ in range(6))
-            if Game.objects.filter(token=token).count() == 0:
-                break
-        if token is None:
-            raise Exception('Cannot generate token')
-        return Game.objects.create(
-            token=token,
+        game = Game.objects.create(
             expired=timezone.now() + datetime.timedelta(hours=12)
         )
+        game.generate_token()
+        return game
 
     @transaction.atomic(savepoint=False)
     def change_score(self, connoisseurs_score, viewers_score):
@@ -255,7 +255,7 @@ class GameItem(models.Model):
     description = models.CharField(max_length=255, blank=True)
     game = models.ForeignKey(Game, on_delete=models.CASCADE, related_name='items')
     type = models.CharField(max_length=25, choices=CHOICES_TYPE)
-    is_processed = models.BooleanField(default=False, blank=True)
+    is_processed = models.BooleanField(default=False)
 
     class Meta:
         ordering = ['number']
@@ -267,7 +267,7 @@ class GameItem(models.Model):
 class Question(models.Model):
     number = models.IntegerField()
     item = models.ForeignKey(GameItem, on_delete=models.CASCADE, related_name='questions')
-    is_processed = models.BooleanField(default=False, blank=True)
+    is_processed = models.BooleanField(default=False)
 
     description = models.TextField()
     text = models.TextField(null=True)

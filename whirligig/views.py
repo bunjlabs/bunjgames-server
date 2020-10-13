@@ -10,9 +10,9 @@ from rest_framework.generics import get_object_or_404
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from common.utils import unzip
 from whirligig.models import Game, BadStateException
 from whirligig.serializers import GameSerializer, TokenSerializer
-from whirligig.utils import unzip
 
 
 class TokenContextMixin:
