@@ -147,3 +147,5 @@ STATIC_URL = '/static/'
 
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 MEDIA_URL = '/media/'
+
+JEOPARDY_IS_POST_EVENT_REQUIRED = False

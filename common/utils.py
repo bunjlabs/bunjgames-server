@@ -8,6 +8,14 @@ from django.conf import settings
 from hashids import Hashids
 
 
+class BadFormatException(Exception):
+    pass
+
+
+class BadStateException(Exception):
+    pass
+
+
 def unzip(filename, extract_dir):
     with zipfile.ZipFile(filename) as archive:
         for entry in archive.infolist():

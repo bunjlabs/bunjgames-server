@@ -5,27 +5,31 @@ from asgiref.sync import async_to_sync
 from channels.generic.websocket import WebsocketConsumer
 from django.core.exceptions import ObjectDoesNotExist
 
-from whirligig.models import Game
-from whirligig.serializers import GameSerializer
+from jeopardy.models import Game
+from jeopardy.serializers import GameSerializer
 
 logger = logging.getLogger(__name__)
 
 
-class WhirligigConsumer(WebsocketConsumer):
+class JeopardyConsumer(WebsocketConsumer):
     token = None
     room_name = None
 
     routes = dict(
         next_state=lambda game, from_state: game.next_state(from_state),
-        change_score=lambda game, connoisseurs_score, viewers_score: game.change_score(
-            connoisseurs_score, viewers_score),
-        change_timer=lambda game, paused: game.change_timer(paused),
-        answer_correct=lambda game, is_correct: game.answer_correct(is_correct)
+        choose_question=lambda game, question_id: game.choose_question(question_id),
+        end_question=lambda game, player_id, balance_diff: game.end_question(player_id, balance_diff),
+        skip_question=lambda game: game.skip_question(),
+        button_click=lambda game, player_id: game.button_click(player_id),
+        final_bet=lambda game, player_id, bet: game.final_bet(player_id, bet),
+        final_answer=lambda game, player_id, answer: game.final_answer(player_id, answer),
+        set_balance=lambda game, balance_list: game.set_balance(balance_list),
+        set_round=lambda game, round: game.set_round(round),
     )
 
     def connect(self):
         self.token = self.scope['url_route']['kwargs']['token']
-        self.room_name = 'whirligig_%s' % self.token
+        self.room_name = 'jeopardy_%s' % self.token
 
         try:
             game = Game.objects.get(token=self.token)

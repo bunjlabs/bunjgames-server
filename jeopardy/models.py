@@ -1,13 +1,12 @@
 import datetime
-import random
-import string
 from xml.etree import ElementTree
 
+from django.conf import settings
 from django.core.exceptions import ObjectDoesNotExist
 from django.db import models, transaction
 from django.utils import timezone
 
-from common.utils import generate_token
+from common.utils import generate_token, BadStateException
 
 
 class Game(models.Model):
@@ -38,22 +37,42 @@ class Game(models.Model):
     token = models.CharField(max_length=25, null=True, blank=True, db_index=True)
     created = models.DateTimeField(auto_now_add=True)
     expired = models.DateTimeField()
-    question = models.ForeignKey('Question', on_delete=models.SET_NULL, null=True, related_name='+')
-    round = models.IntegerField(default=1)
     last_round = models.IntegerField(default=1)
     final_round = models.IntegerField(default=0)  # 0 for no final
     state = models.CharField(max_length=25, choices=CHOICES_STATE, default=STATE_WAITING_FOR_PLAYERS)
+    round = models.IntegerField(default=1)
+    question = models.ForeignKey('Question', on_delete=models.SET_NULL, null=True, related_name='+')
     button_won_by = models.ForeignKey('Player', on_delete=models.SET_NULL, null=True, related_name='+')
 
-    def get_current_categories(self):
-        return self.categories.filter(round=self.round)
+    def is_final_round(self):
+        return self.final_round != 0 and self.round == self.final_round
 
-    def get_all_categories(self):
-        return self.categories.all()
+    def get_categories(self):
+        if self.state in (self.STATE_WAITING_FOR_PLAYERS, self.STATE_GAME_END):
+            return Category.objects.none()
+        if self.state == self.STATE_THEMES_ALL:
+            return self.categories.all()
+        else:
+            return self.categories.filter(round=self.round)
 
     def generate_token(self):
         self.token = generate_token(self.pk)
         self.save(update_fields=['token'])
+
+    def process_question_end(self):
+        self.question.is_processed = True
+        self.question.save()
+        if Question.objects.filter(category__in=self.get_categories(), is_processed=False).count() > 3 * self.round:
+            self.question = None
+            self.state = Game.STATE_QUESTIONS
+            self.save()
+        else:
+            self.question = None
+            self.state = Game.STATE_THEMES_ROUND
+            self.round += 1
+            if not self.get_categories().exists():
+                self.state = Game.STATE_GAME_END
+            self.save()
 
     @staticmethod
     @transaction.atomic(savepoint=False)
@@ -64,7 +83,7 @@ class Game(models.Model):
         game.generate_token()
         return game
 
-    def parse_xml(self, filename):
+    def parse(self, filename):
         tree = ElementTree.parse(filename)
         root = tree.getroot()
 
@@ -134,7 +153,7 @@ class Game(models.Model):
                             and question.find(namespace + 'info').find(namespace + 'comments') is not None:
                         comment = question.find(namespace + 'info').find(namespace + 'comments').text
 
-                    if IS_POST_EVENT_REQUIRED and right_answer \
+                    if settings.JEOPARDY_IS_POST_EVENT_REQUIRED and right_answer \
                             and not post_text and not post_image and not post_audio and not post_video:
                         post_text = right_answer
 
@@ -159,29 +178,133 @@ class Game(models.Model):
             self.final_round = last_round
         self.save()
 
+    @transaction.atomic(savepoint=False)
+    def next_state(self, from_state):
+        if from_state is not None and self.state != from_state:
+            return
+        if self.state == self.STATE_WAITING_FOR_PLAYERS:
+            if self.players.count() >= 3:
+                self.state = Game.STATE_THEMES_ALL
+            else:
+                raise BadStateException()
+        elif self.state == self.STATE_THEMES_ALL:
+            self.state = Game.STATE_THEMES_ROUND
+        elif self.state == Game.STATE_THEMES_ROUND:
+            self.state = Game.STATE_QUESTIONS
+        elif self.state == self.STATE_QUESTIONS:
+            pass
+        elif self.state == self.STATE_QUESTION_EVENT:
+            if self.is_final_round() and self.players.filter(balance__gt=0, final_bet__lte=0).exists():
+                raise BadStateException()
+            self.state = Game.STATE_QUESTION
+        elif self.state == self.STATE_QUESTION:
+            pass
+        elif self.state == self.STATE_QUESTION_END:
+            self.process_question_end()
+        elif self.state == self.STATE_FINAL_END:
+            self.state = self.STATE_GAME_END
+        else:
+            raise BadStateException()
+        self.save()
 
-class Player(models.Model):
-    created = models.DateTimeField(auto_now_add=True)
-    name = models.CharField(max_length=255)
-    game = models.ForeignKey(Game, on_delete=models.CASCADE, related_name='players')
-    balance = models.IntegerField(default=0)
-    final_bet = models.IntegerField(default=0)
-    final_answer = models.TextField(default='', blank=True)
+    @transaction.atomic(savepoint=False)
+    def choose_question(self, question_id):
+        question = Question.objects.get(id=question_id)
+        if question.category.game.id != self.id or question.is_processed:
+            raise BadStateException()
+        if self.is_final_round():
+            question.is_processed = True
+            question.save()
 
-    @staticmethod
-    def get_by_game_and_name(game, name):
-        try:
-            return Player.objects.get(
-                game=game, name=name
-            )
-        except ObjectDoesNotExist:
-            return None
+            filtered_question = Question.objects.filter(category__in=self.get_categories(), is_processed=False)
+            if filtered_question.count() == 1:
+                self.state = Game.STATE_QUESTION_EVENT
+                self.question = filtered_question.get()
+                self.save()
+        else:
+            self.state = Game.STATE_QUESTION if question.type == Question.TYPE_STANDARD else Game.STATE_QUESTION_EVENT
+            self.question = question
+            self.save()
+
+    @transaction.atomic(savepoint=False)
+    def end_question(self, player_id, balance_diff):
+        if self.is_final_round():
+            self.state = Game.STATE_FINAL_END
+        else:
+            player = self.button_won_by \
+                if self.question.type == Question.TYPE_STANDARD else self.players.get(id=player_id)
+            player.balance += balance_diff
+            player.save()
+            self.button_won_by = None
+
+            if self.question.answer_text or self.question.answer_image \
+                    or self.question.answer_audio or self.question.answer_video:
+                self.state = Game.STATE_QUESTION_END
+            else:
+                self.process_question_end()
+        self.save()
+
+    @transaction.atomic(savepoint=False)
+    def skip_question(self):
+        if self.state not in (self.STATE_QUESTION_EVENT, self.STATE_QUESTION):
+            return
+
+        self.button_won_by = None
+        if self.question.post_text or self.question.post_image \
+                or self.question.post_audio or self.question.post_video:
+            self.state = Game.STATE_QUESTION_END
+        else:
+            self.process_question_end()
+        self.save()
+
+    @transaction.atomic(savepoint=False)
+    def button_click(self, player_id):
+        if self.state != self.STATE_QUESTION or self.button_won_by is not None:
+            return
+
+        self.button_won_by = self.players.get(id=player_id)
+        self.save()
+
+    @transaction.atomic(savepoint=False)
+    def final_bet(self, player_id, bet):
+        if not self.is_final_round() or self.state != self.STATE_QUESTION_EVENT:
+            return
+        player = self.players.get(id=player_id)
+        if player.balance < bet:
+            raise BadStateException()
+        player.final_bet = bet
+        player.save()
+
+    @transaction.atomic(savepoint=False)
+    def final_answer(self, player_id, answer):
+        if not self.is_final_round() or self.state != self.STATE_QUESTION:
+            return
+        player = self.players.get(id=player_id)
+        player.final_answer = answer
+        player.save()
+
+    @transaction.atomic(savepoint=False)
+    def set_balance(self, balance_list):
+        for index, player in enumerate(self.players):
+            player.balance = balance_list[index]
+            player.save()
+
+    @transaction.atomic(savepoint=False)
+    def set_round(self, round):
+        self.round = round
+        self.state = Game.STATE_THEMES_ROUND if self.get_categories().exists() else Game.STATE_GAME_END
+        self.button_won_by = None
+        Question.objects.filter(category__in=self.get_categories(), is_processed=True).update(is_processed=False)
+        self.save()
 
 
 class Category(models.Model):
     name = models.CharField(max_length=255)
-    round = models.IntegerField()
+    round = models.IntegerField(db_index=True)
     game = models.ForeignKey(Game, on_delete=models.CASCADE, null=True, related_name='categories')
+
+    class Meta:
+        ordering = ['round', 'pk']
 
 
 class Question(models.Model):
@@ -212,3 +335,27 @@ class Question(models.Model):
     type = models.CharField(max_length=25, choices=CHOICES_TYPE)
     category = models.ForeignKey(Category, on_delete=models.CASCADE, related_name='questions')
     is_processed = models.BooleanField(default=False)
+
+    class Meta:
+        ordering = ['pk']
+
+
+class Player(models.Model):
+    created = models.DateTimeField(auto_now_add=True)
+    name = models.CharField(max_length=255)
+    game = models.ForeignKey(Game, on_delete=models.CASCADE, related_name='players')
+    balance = models.IntegerField(default=0)
+    final_bet = models.IntegerField(default=0)
+    final_answer = models.TextField(default='', blank=True)
+
+    @staticmethod
+    def get_by_game_and_name(game, name):
+        try:
+            return Player.objects.get(
+                game=game, name=name
+            )
+        except ObjectDoesNotExist:
+            return None
+
+    class Meta:
+        ordering = ['pk']

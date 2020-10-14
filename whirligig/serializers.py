@@ -4,13 +4,6 @@ from rest_framework.fields import SerializerMethodField
 from whirligig.models import Game, GameItem, Question
 
 
-class TokenSerializer(serializers.Serializer):
-    token = serializers.CharField(allow_null=True, required=False)
-
-    def __init__(self, *args, **kwargs):
-        serializers.Serializer.__init__(self, *args, **kwargs)
-
-
 class QuestionSerializer(serializers.Serializer):
     number = serializers.IntegerField()
     is_processed = serializers.BooleanField()

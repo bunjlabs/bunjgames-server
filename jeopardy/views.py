@@ -1,27 +1,17 @@
 import os
 
 from django.conf import settings
+from django.core.exceptions import ObjectDoesNotExist
 from django.core.files.base import ContentFile
 from django.core.files.storage import default_storage
 from django.db import transaction
-
-from rest_framework import generics
 from rest_framework.generics import get_object_or_404
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from common.utils import unzip
-from common.views import TokenContextMixin
-from whirligig.models import Game, BadStateException
-from whirligig.serializers import GameSerializer
-
-
-class GameAPI(TokenContextMixin, generics.RetrieveAPIView):
-    queryset = Game.objects.all()
-    serializer_class = GameSerializer
-
-    def get_object(self):
-        return get_object_or_404(self.get_queryset(), token=self.token)
+from common.utils import unzip, BadStateException
+from jeopardy.models import Game, Player
+from jeopardy.serializers import GameSerializer
 
 
 class CreateGameAPI(APIView):
@@ -48,24 +38,20 @@ class CreateGameAPI(APIView):
         return Response(GameSerializer().to_representation(game))
 
 
-class NextStateAPI(APIView):
+class RegisterPlayerAPI(APIView):
     serializer_class = GameSerializer
 
     @transaction.atomic()
     def post(self, request):
+        token, name = request.data['token'], request.data['name']
+        game = get_object_or_404(Game, token=token)
         try:
-            game = get_object_or_404(Game.objects.all(), token=request.data.get('token'))
-            game.next_state()
-            return Response(GameSerializer().to_representation(game))
-        except BadStateException:
-            return Response(status=400)
-
-
-class ChangeScoreAPI(APIView):
-    serializer_class = GameSerializer
-
-    @transaction.atomic()
-    def post(self, request):
-        game = get_object_or_404(Game.objects.all(), token=request.data.get('token'))
-        game.change_score(request.data.get('connoisseurs_score'), request.data.get('viewers_score'))
-        return Response(GameSerializer().to_representation(game))
+            player = Player.objects.get(game=game, name=name)
+        except ObjectDoesNotExist:
+            if game.state != Game.STATE_WAITING_FOR_PLAYERS or game.players.count() >= 3:
+                raise BadStateException()
+            player = Player.objects.create(game=game, name=name)
+        return Response({
+            'player_id': player.id,
+            'game': GameSerializer().to_representation(game)
+        })

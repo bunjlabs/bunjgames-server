@@ -3,20 +3,11 @@ import time
 
 from django.utils import timezone
 import random
-import string
 from xml.etree import ElementTree
 
 from django.db import models, transaction
 
-from common.utils import generate_token
-
-
-class BadFormatException(Exception):
-    pass
-
-
-class BadStateException(Exception):
-    pass
+from common.utils import generate_token, BadFormatException, BadStateException
 
 
 class Game(models.Model):
