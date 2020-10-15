@@ -32,8 +32,8 @@ class CreateGameAPI(APIView):
         game = Game.new()
 
         data = request.data['game']
-        path = default_storage.save(os.path.join(game.token, 'game'), ContentFile(data.read()))
-        file = os.path.join(settings.MEDIA_ROOT_WHIRLIGIG, path)
+        path = default_storage.save(os.path.join('whirligig', game.token, 'game'), ContentFile(data.read()))
+        file = os.path.join(settings.MEDIA_ROOT, path)
         try:
             unzip(file, os.path.join(settings.MEDIA_ROOT_WHIRLIGIG, game.token))
         finally:

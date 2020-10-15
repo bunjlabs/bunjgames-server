@@ -22,8 +22,8 @@ class CreateGameAPI(APIView):
         game = Game.new()
 
         data = request.data['game']
-        path = default_storage.save(os.path.join(game.token, 'game'), ContentFile(data.read()))
-        file = os.path.join(settings.MEDIA_ROOT_JEOPARDY, path)
+        path = default_storage.save(os.path.join('jeopardy', game.token, 'game'), ContentFile(data.read()))
+        file = os.path.join(settings.MEDIA_ROOT, path)
         try:
             unzip(file, os.path.join(settings.MEDIA_ROOT_JEOPARDY, game.token))
         finally:
