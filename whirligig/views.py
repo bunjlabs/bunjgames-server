@@ -33,17 +33,17 @@ class CreateGameAPI(APIView):
 
         data = request.data['game']
         path = default_storage.save(os.path.join(game.token, 'game'), ContentFile(data.read()))
-        file = os.path.join(settings.MEDIA_ROOT, path)
+        file = os.path.join(settings.MEDIA_ROOT_WHIRLIGIG, path)
         try:
-            unzip(file, os.path.join(settings.MEDIA_ROOT, game.token))
+            unzip(file, os.path.join(settings.MEDIA_ROOT_WHIRLIGIG, game.token))
         finally:
             os.remove(file)
 
-        game.parse(os.path.join(settings.MEDIA_ROOT, game.token, 'content.xml'))
-        os.remove(os.path.join(settings.MEDIA_ROOT, game.token, 'content.xml'))
+        game.parse(os.path.join(settings.MEDIA_ROOT_WHIRLIGIG, game.token, 'content.xml'))
+        os.remove(os.path.join(settings.MEDIA_ROOT_WHIRLIGIG, game.token, 'content.xml'))
 
-        if not os.listdir(os.path.join(settings.MEDIA_ROOT, game.token)):
-            os.rmdir(os.path.join(settings.MEDIA_ROOT, game.token))
+        if not os.listdir(os.path.join(settings.MEDIA_ROOT_WHIRLIGIG, game.token)):
+            os.rmdir(os.path.join(settings.MEDIA_ROOT_WHIRLIGIG, game.token))
 
         return Response(GameSerializer().to_representation(game))
 

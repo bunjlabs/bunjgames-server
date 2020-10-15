@@ -15,5 +15,5 @@ class Command(BaseCommand):
         expired_games = Game.objects.filter(expired__lt=timezone.now())
         for game in expired_games.iterator():
             print(game.token)
-            shutil.rmtree(os.path.join(settings.MEDIA_ROOT, game.token), ignore_errors=True)
+            shutil.rmtree(os.path.join(settings.MEDIA_ROOT_WHIRLIGIG, game.token), ignore_errors=True)
         expired_games.delete()

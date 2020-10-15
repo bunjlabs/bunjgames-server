@@ -146,6 +146,8 @@ USE_TZ = True
 STATIC_URL = '/static/'
 
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+MEDIA_ROOT_WHIRLIGIG = os.path.join(BASE_DIR, 'media', 'whirligig')
+MEDIA_ROOT_JEOPARDY = os.path.join(BASE_DIR, 'media', 'jeopardy')
 MEDIA_URL = '/media/'
 
 JEOPARDY_IS_POST_EVENT_REQUIRED = False

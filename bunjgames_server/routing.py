@@ -6,7 +6,7 @@ import whirligig.routing
 
 application = ProtocolTypeRouter({
     'websocket': URLRouter([
-        path('whirligig/', URLRouter(whirligig.routing.websocket_urlpatterns)),
-        path('jeopardy/', URLRouter(jeopardy.routing.websocket_urlpatterns)),
+        path('ws/whirligig/', URLRouter(whirligig.routing.websocket_urlpatterns)),
+        path('ws/jeopardy/', URLRouter(jeopardy.routing.websocket_urlpatterns)),
     ]),
 })
