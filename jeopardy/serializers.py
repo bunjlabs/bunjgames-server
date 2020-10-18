@@ -39,7 +39,7 @@ class QuestionSerializer(serializers.Serializer):
 
 
 class CategorySerializer(serializers.Serializer):
-    name = ''
+    name = serializers.CharField()
     questions = QuestionSerializer(many=True)
 
     class Meta:
@@ -55,13 +55,16 @@ class GameSerializer(serializers.Serializer):
     question = QuestionSerializer()
     categories = SerializerMethodField()
     players = PlayerSerializer(many=True)
-    button_won_by = serializers.IntegerField(source="button_won_by.id")
+    button_won_by = SerializerMethodField()
 
     def get_categories(self, model: Game):
         return CategorySerializer(many=True).to_representation(model.get_categories())
 
     def get_is_final_round(self, model: Game):
         return model.is_final_round()
+
+    def get_button_won_by(self, model: Game):
+        return model.button_won_by.id if model.button_won_by else None
 
     class Meta:
         model = Game

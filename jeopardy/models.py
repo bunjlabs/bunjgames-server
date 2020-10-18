@@ -163,10 +163,10 @@ class Game(models.Model):
                         image=image,
                         audio=audio,
                         video=video,
-                        post_text=post_text,
-                        post_image=post_image,
-                        post_audio=post_audio,
-                        post_video=post_video,
+                        answer_text=post_text,
+                        answer_image=post_image,
+                        answer_audio=post_audio,
+                        answer_video=post_video,
                         value=question_price,
                         answer=right_answer,
                         comment=comment,
@@ -250,8 +250,8 @@ class Game(models.Model):
             return
 
         self.button_won_by = None
-        if self.question.post_text or self.question.post_image \
-                or self.question.post_audio or self.question.post_video:
+        if self.question.answer_text or self.question.answer_image \
+                or self.question.answer_audio or self.question.answer_video:
             self.state = Game.STATE_QUESTION_END
         else:
             self.process_question_end()
