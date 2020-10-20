@@ -50,6 +50,7 @@ class GameSerializer(serializers.Serializer):
     token = serializers.CharField()
     expired = serializers.DateTimeField()
     round = serializers.IntegerField()
+    rounds_count = serializers.IntegerField(source='last_round')
     is_final_round = SerializerMethodField()
     state = serializers.CharField()
     question = QuestionSerializer()

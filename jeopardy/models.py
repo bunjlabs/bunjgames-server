@@ -51,7 +51,9 @@ class Game(models.Model):
         if self.state in (self.STATE_WAITING_FOR_PLAYERS, self.STATE_GAME_END):
             return Category.objects.none()
         if self.state == self.STATE_THEMES_ALL:
-            return self.categories.all()
+            return self.categories.filter(round__in=[
+                i for i in range(self.last_round if self.final_round else self.last_round + 1)
+            ])
         else:
             return self.categories.filter(round=self.round)
 
@@ -285,7 +287,7 @@ class Game(models.Model):
 
     @transaction.atomic(savepoint=False)
     def set_balance(self, balance_list):
-        for index, player in enumerate(self.players):
+        for index, player in enumerate(self.players.iterator()):
             player.balance = balance_list[index]
             player.save()
 

@@ -18,23 +18,30 @@ class Game(models.Model):
     STATE_QUESTION_START = 'question_start'
     STATE_QUESTION_DISCUSSION = 'question_discussion'
     STATE_ANSWER = 'answer'
+    STATE_EXTRA_MINUTE = 'extra_minute'
+    STATE_CLUB_HELP = 'club_help'
     STATE_RIGHT_ANSWER = 'right_answer'
     STATE_QUESTION_END = 'question_end'
     STATE_END = 'end'
 
-    CHOICES_STATE = (
-        (STATE_START, STATE_START),
-        (STATE_INTRO, STATE_INTRO),
-        (STATE_QUESTIONS, STATE_QUESTIONS),
-        (STATE_QUESTION_START, STATE_QUESTION_START),
-        (STATE_QUESTION_DISCUSSION, STATE_QUESTION_DISCUSSION),
-        (STATE_ANSWER, STATE_ANSWER),
-        (STATE_RIGHT_ANSWER, STATE_RIGHT_ANSWER),
-        (STATE_QUESTION_END, STATE_QUESTION_END),
-        (STATE_END, STATE_END),
+    STATES = (
+        STATE_START,
+        STATE_INTRO,
+        STATE_QUESTIONS,
+        STATE_QUESTION_WHIRLIGIG,
+        STATE_QUESTION_START,
+        STATE_QUESTION_DISCUSSION,
+        STATE_ANSWER,
+        STATE_EXTRA_MINUTE,
+        STATE_CLUB_HELP,
+        STATE_RIGHT_ANSWER,
+        STATE_QUESTION_END,
+        STATE_END,
     )
 
-    MAX_SCORE = 6 + 0
+    CHOICES_STATE = ((o, o) for o in STATES)
+
+    MAX_SCORE = 6
 
     token = models.CharField(max_length=25, null=True, blank=True, db_index=True)
     created = models.DateTimeField(auto_now_add=True)
@@ -55,6 +62,16 @@ class Game(models.Model):
     def generate_token(self):
         self.token = generate_token(self.pk)
         self.save(update_fields=['token'])
+
+    def set_timer(self, t, save=False):
+        self.timer_paused = time == 0
+        self.timer_paused_time = 0
+        self.timer_time = int(round((time.time() + t) * 1000))
+        if save:
+            self.save(update_fields=['timer_paused', 'timer_paused_time', 'timer_time'])
+
+    def clear_timer(self, save=False):
+        self.set_timer(0, save)
 
     @staticmethod
     @transaction.atomic(savepoint=False)
@@ -112,6 +129,18 @@ class Game(models.Model):
                 self.cur_question += 1
                 self.state = self.STATE_QUESTION_START
 
+            self.save()
+
+    @transaction.atomic(savepoint=False)
+    def extra_minute(self):
+        if self.state == self.STATE_ANSWER:
+            self.state = self.STATE_EXTRA_MINUTE
+            self.save()
+
+    @transaction.atomic(savepoint=False)
+    def club_help(self):
+        if self.state == self.STATE_ANSWER:
+            self.state = self.STATE_CLUB_HELP
             self.save()
 
     @transaction.atomic(savepoint=False)
@@ -199,17 +228,20 @@ class Game(models.Model):
         elif self.state == self.STATE_QUESTION_WHIRLIGIG:
             self.state = self.STATE_QUESTION_START
         elif self.state == self.STATE_QUESTION_START:
+            self.set_timer(self.get_curr_item().get_time())
             self.state = self.STATE_QUESTION_DISCUSSION
-            self.timer_paused = False
-            self.timer_paused_time = 0
-            self.timer_time = int(round((time.time() + self.get_curr_item().get_time()) * 1000))
         elif self.state == self.STATE_QUESTION_DISCUSSION:
-            self.timer_paused = True
-            self.timer_paused_time = 0
-            self.timer_time = 0
+            self.clear_timer()
             self.state = self.STATE_ANSWER
         elif self.state == self.STATE_ANSWER:
+            self.clear_timer()
             self.state = self.STATE_RIGHT_ANSWER
+        elif self.state == self.STATE_EXTRA_MINUTE:
+            self.set_timer(60)
+            self.state = self.STATE_ANSWER
+        elif self.state == self.STATE_CLUB_HELP:
+            self.set_timer(20)
+            self.state = self.STATE_ANSWER
         elif self.state == self.STATE_RIGHT_ANSWER:
             pass
         elif self.state == self.STATE_QUESTION_END:
