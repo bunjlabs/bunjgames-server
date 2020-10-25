@@ -12,22 +12,30 @@ from common.utils import generate_token, BadStateException
 class Game(models.Model):
     STATE_WAITING_FOR_PLAYERS = 'waiting_for_players'
     STATE_THEMES_ALL = 'themes_all'
-    STATE_THEMES_ROUND = 'themes_round'
+    STATE_ROUND_THEMES = 'round_themes'
     STATE_QUESTIONS = 'questions'
     STATE_QUESTION_EVENT = 'question_event'
     STATE_QUESTION = 'question'
     STATE_QUESTION_END = 'question_end'
+    STATE_FINAL_THEMES = 'final_themes'
+    STATE_FINAL_BETS = 'final_bets'
+    STATE_FINAL_QUESTION = 'final_question'
+    STATE_FINAL_QUESTION_TIMER = 'final_question_timer'
     STATE_FINAL_END = 'final_end'
     STATE_GAME_END = 'game_end'
 
     STATES = (
         STATE_WAITING_FOR_PLAYERS,
         STATE_THEMES_ALL,
-        STATE_THEMES_ROUND,
+        STATE_ROUND_THEMES,
         STATE_QUESTIONS,
         STATE_QUESTION_EVENT,
         STATE_QUESTION,
         STATE_QUESTION_END,
+        STATE_FINAL_THEMES,
+        STATE_FINAL_BETS,
+        STATE_FINAL_QUESTION,
+        STATE_FINAL_QUESTION_TIMER,
         STATE_FINAL_END,
         STATE_GAME_END,
     )
@@ -42,20 +50,21 @@ class Game(models.Model):
     state = models.CharField(max_length=25, choices=CHOICES_STATE, default=STATE_WAITING_FOR_PLAYERS)
     round = models.IntegerField(default=1)
     question = models.ForeignKey('Question', on_delete=models.SET_NULL, null=True, related_name='+')
-    button_won_by = models.ForeignKey('Player', on_delete=models.SET_NULL, null=True, related_name='+')
+    answerer = models.ForeignKey('Player', on_delete=models.SET_NULL, null=True, related_name='+')
+    question_bet = models.IntegerField(default=0)
 
     def is_final_round(self):
         return self.final_round != 0 and self.round == self.final_round
 
-    def get_categories(self):
+    def get_themes(self):
         if self.state in (self.STATE_WAITING_FOR_PLAYERS, self.STATE_GAME_END):
-            return Category.objects.none()
+            return Theme.objects.none()
         if self.state == self.STATE_THEMES_ALL:
-            return self.categories.filter(round__in=[
+            return self.themes.filter(round__in=[
                 i for i in range(self.last_round if self.final_round else self.last_round + 1)
             ])
         else:
-            return self.categories.filter(round=self.round)
+            return self.themes.filter(round=self.round)
 
     def generate_token(self):
         self.token = generate_token(self.pk)
@@ -64,16 +73,18 @@ class Game(models.Model):
     def process_question_end(self):
         self.question.is_processed = True
         self.question.save()
-        if Question.objects.filter(category__in=self.get_categories(), is_processed=False).count() > 3 * self.round:
+        if Question.objects.filter(theme__in=self.get_themes(), is_processed=False).count() > 3 * self.round:
             self.question = None
             self.state = Game.STATE_QUESTIONS
             self.save()
         else:
             self.question = None
-            self.state = Game.STATE_THEMES_ROUND
+            self.state = Game.STATE_ROUND_THEMES
             self.round += 1
-            if not self.get_categories().exists():
+            if not self.get_themes().exists():
                 self.state = Game.STATE_GAME_END
+            elif self.is_final_round():
+                self.state = Game.STATE_FINAL_THEMES
             self.save()
 
     @staticmethod
@@ -85,6 +96,7 @@ class Game(models.Model):
         game.generate_token()
         return game
 
+    @transaction.atomic(savepoint=False)
     def parse(self, filename):
         tree = ElementTree.parse(filename)
         root = tree.getroot()
@@ -97,7 +109,7 @@ class Game(models.Model):
             last_round = i + 1
             for theme in round.find(namespace + 'themes').findall(namespace + 'theme'):
                 theme_name = theme.get('name')
-                category = Category.objects.create(name=theme_name, round=i+1, game=self)
+                theme_model = Theme.objects.create(name=theme_name, round=i+1, game=self)
                 for question in theme.find(namespace + 'questions').findall(namespace + 'question'):
                     question_price = question.get('price')
                     type = Question.TYPE_STANDARD
@@ -173,10 +185,10 @@ class Game(models.Model):
                         answer=right_answer,
                         comment=comment,
                         type=type,
-                        category=category
+                        theme=theme_model
                     )
         self.last_round = last_round
-        if self.categories.filter(round=last_round)[0].questions.count() == 1:
+        if self.themes.filter(round=last_round)[0].questions.count() == 1:
             self.final_round = last_round
         self.save()
 
@@ -190,19 +202,28 @@ class Game(models.Model):
             else:
                 raise BadStateException()
         elif self.state == self.STATE_THEMES_ALL:
-            self.state = Game.STATE_THEMES_ROUND
-        elif self.state == Game.STATE_THEMES_ROUND:
+            self.state = Game.STATE_ROUND_THEMES
+        elif self.state == Game.STATE_ROUND_THEMES:
             self.state = Game.STATE_QUESTIONS
         elif self.state == self.STATE_QUESTIONS:
             pass
         elif self.state == self.STATE_QUESTION_EVENT:
-            if self.is_final_round() and self.players.filter(balance__gt=0, final_bet__lte=0).exists():
-                raise BadStateException()
-            self.state = Game.STATE_QUESTION
+            pass
         elif self.state == self.STATE_QUESTION:
             pass
         elif self.state == self.STATE_QUESTION_END:
             self.process_question_end()
+        elif self.state == self.STATE_FINAL_THEMES:
+            pass
+        elif self.state == self.STATE_FINAL_BETS:
+            if self.is_final_round() and self.players.filter(balance__gt=0, final_bet__lte=0).exists():
+                raise BadStateException()
+            self.state = self.STATE_FINAL_QUESTION
+        elif self.state == self.STATE_FINAL_QUESTION:
+            # TODO: timer
+            self.state = self.STATE_FINAL_QUESTION_TIMER
+        elif self.state == self.STATE_FINAL_QUESTION_TIMER:
+            self.state = self.STATE_FINAL_END
         elif self.state == self.STATE_FINAL_END:
             self.state = self.STATE_GAME_END
         else:
@@ -212,38 +233,20 @@ class Game(models.Model):
     @transaction.atomic(savepoint=False)
     def choose_question(self, question_id):
         question = Question.objects.get(id=question_id)
-        if question.category.game.id != self.id or question.is_processed:
+        if question.theme.game.id != self.id or question.is_processed:
             raise BadStateException()
-        if self.is_final_round():
-            question.is_processed = True
-            question.save()
-
-            filtered_question = Question.objects.filter(category__in=self.get_categories(), is_processed=False)
-            if filtered_question.count() == 1:
-                self.state = Game.STATE_QUESTION_EVENT
-                self.question = filtered_question.get()
-                self.save()
-        else:
-            self.state = Game.STATE_QUESTION if question.type == Question.TYPE_STANDARD else Game.STATE_QUESTION_EVENT
-            self.question = question
-            self.save()
+        self.state = Game.STATE_QUESTION if question.type == Question.TYPE_STANDARD else Game.STATE_QUESTION_EVENT
+        self.question = question
+        self.save()
 
     @transaction.atomic(savepoint=False)
-    def end_question(self, player_id, balance_diff):
-        if self.is_final_round():
-            self.state = Game.STATE_FINAL_END
-        else:
-            player = self.button_won_by \
-                if self.question.type == Question.TYPE_STANDARD else self.players.get(id=player_id)
-            player.balance += balance_diff
-            player.save()
-            self.button_won_by = None
+    def set_answerer_and_bet(self, player_id, bet):
+        if bet <= 0:
+            raise BadStateException()
 
-            if self.question.answer_text or self.question.answer_image \
-                    or self.question.answer_audio or self.question.answer_video:
-                self.state = Game.STATE_QUESTION_END
-            else:
-                self.process_question_end()
+        self.question_bet = bet
+        self.answerer = self.players.get(id=player_id)
+        self.state = Game.STATE_QUESTION
         self.save()
 
     @transaction.atomic(savepoint=False)
@@ -251,7 +254,9 @@ class Game(models.Model):
         if self.state not in (self.STATE_QUESTION_EVENT, self.STATE_QUESTION):
             return
 
-        self.button_won_by = None
+        self.question_bet = 0
+        self.answerer = None
+
         if self.question.answer_text or self.question.answer_image \
                 or self.question.answer_audio or self.question.answer_video:
             self.state = Game.STATE_QUESTION_END
@@ -261,15 +266,58 @@ class Game(models.Model):
 
     @transaction.atomic(savepoint=False)
     def button_click(self, player_id):
-        if self.state != self.STATE_QUESTION or self.button_won_by is not None:
+        if self.state != self.STATE_QUESTION or self.answerer is not None \
+                or self.question.type != Question.TYPE_STANDARD:
             return
 
-        self.button_won_by = self.players.get(id=player_id)
+        self.answerer = self.players.get(id=player_id)
         self.save()
 
     @transaction.atomic(savepoint=False)
+    def answer(self, is_right):
+        if self.state != self.STATE_QUESTION or self.answerer is None:
+            return
+
+        def question_end():
+            self.question_bet = 0
+
+            if self.question.answer_text or self.question.answer_image \
+                    or self.question.answer_audio or self.question.answer_video:
+                self.state = Game.STATE_QUESTION_END
+            else:
+                self.process_question_end()
+
+        if is_right:
+            player = self.answerer
+            player.balance += self.question_bet if self.question.type != Question.TYPE_STANDARD else self.question.value
+            player.save()
+            question_end()
+        else:
+            player = self.answerer
+            player.balance -= self.question_bet if self.question.type != Question.TYPE_STANDARD else self.question.value
+            player.save()
+            if self.question.type != Question.TYPE_STANDARD:
+                question_end()
+        self.answerer = None
+        self.save()
+
+    @transaction.atomic(savepoint=False)
+    def remove_final_theme(self, theme_id):
+        if self.state != self.STATE_FINAL_THEMES:
+            return
+        theme = self.get_themes().get(id=theme_id)
+        theme.is_removed = True
+        theme.save()
+
+        filtered_themes = self.get_themes().filter(is_removed=False)
+        if filtered_themes.count() == 1:
+            self.state = Game.STATE_FINAL_BETS
+            self.question = filtered_themes.get().questions.get()
+            self.save()
+
+    @transaction.atomic(savepoint=False)
     def final_bet(self, player_id, bet):
-        if not self.is_final_round() or self.state != self.STATE_QUESTION_EVENT:
+        if self.state != self.STATE_FINAL_BETS:
             return
         player = self.players.get(id=player_id)
         if player.balance < bet:
@@ -279,7 +327,7 @@ class Game(models.Model):
 
     @transaction.atomic(savepoint=False)
     def final_answer(self, player_id, answer):
-        if not self.is_final_round() or self.state != self.STATE_QUESTION:
+        if self.state != self.STATE_FINAL_QUESTION_TIMER:
             return
         player = self.players.get(id=player_id)
         player.final_answer = answer
@@ -294,16 +342,24 @@ class Game(models.Model):
     @transaction.atomic(savepoint=False)
     def set_round(self, round):
         self.round = round
-        self.state = Game.STATE_THEMES_ROUND if self.get_categories().exists() else Game.STATE_GAME_END
-        self.button_won_by = None
-        Question.objects.filter(category__in=self.get_categories(), is_processed=True).update(is_processed=False)
+        if self.is_final_round():
+            self.state = Game.STATE_FINAL_THEMES
+        elif self.get_themes().exists():
+            self.state = Game.STATE_ROUND_THEMES
+        else:
+            self.state = Game.STATE_GAME_END
+        self.answerer = None
+        self.question_bet = 0
+        Question.objects.filter(theme__in=self.get_themes(), is_processed=True).update(is_processed=False)
+        self.get_themes().filter(is_removed=True).update(is_removed=False)
         self.save()
 
 
-class Category(models.Model):
+class Theme(models.Model):
     name = models.CharField(max_length=255)
     round = models.IntegerField(db_index=True)
-    game = models.ForeignKey(Game, on_delete=models.CASCADE, null=True, related_name='categories')
+    is_removed = models.BooleanField(default=False)
+    game = models.ForeignKey(Game, on_delete=models.CASCADE, null=True, related_name='themes')
 
     class Meta:
         ordering = ['round', 'pk']
@@ -324,18 +380,18 @@ class Question(models.Model):
 
     custom_theme = models.CharField(max_length=255, null=True)
     text = models.TextField(null=True)
-    image = models.CharField(max_length=255, null=True)
-    audio = models.CharField(max_length=255, null=True)
-    video = models.CharField(max_length=255, null=True)
-    answer = models.CharField(max_length=255)
+    image = models.TextField(null=True)
+    audio = models.TextField(null=True)
+    video = models.TextField(null=True)
+    answer = models.TextField()
     answer_text = models.TextField(null=True)
-    answer_image = models.CharField(max_length=255, null=True)
-    answer_audio = models.CharField(max_length=255, null=True)
-    answer_video = models.CharField(max_length=255, null=True)
+    answer_image = models.TextField(null=True)
+    answer_audio = models.TextField(null=True)
+    answer_video = models.TextField(null=True)
     value = models.IntegerField()
     comment = models.TextField()
     type = models.CharField(max_length=25, choices=CHOICES_TYPE)
-    category = models.ForeignKey(Category, on_delete=models.CASCADE, related_name='questions')
+    theme = models.ForeignKey(Theme, on_delete=models.CASCADE, related_name='questions')
     is_processed = models.BooleanField(default=False)
 
     class Meta:

@@ -51,6 +51,7 @@ class GameSerializer(serializers.Serializer):
     timer_paused = serializers.BooleanField()
     timer_paused_time = serializers.IntegerField()
     timer_time = serializers.IntegerField()
+    name = serializers.ReadOnlyField(default='whirligig')
 
     def get_cur_item(self, model: Game):
         item = model.items.get(number=model.cur_item) \

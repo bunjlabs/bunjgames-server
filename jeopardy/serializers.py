@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from rest_framework.fields import SerializerMethodField
 
-from jeopardy.models import Game, Question, Category, Player
+from jeopardy.models import Game, Question, Theme, Player
 
 
 class PlayerSerializer(serializers.Serializer):
@@ -16,6 +16,7 @@ class PlayerSerializer(serializers.Serializer):
 
 
 class QuestionSerializer(serializers.Serializer):
+    id = serializers.IntegerField()
     custom_theme = serializers.CharField()
 
     text = serializers.CharField()
@@ -38,12 +39,14 @@ class QuestionSerializer(serializers.Serializer):
         model = Question
 
 
-class CategorySerializer(serializers.Serializer):
+class ThemeSerializer(serializers.Serializer):
+    id = serializers.IntegerField()
     name = serializers.CharField()
+    is_removed = serializers.BooleanField()
     questions = QuestionSerializer(many=True)
 
     class Meta:
-        model = Category
+        model = Theme
 
 
 class GameSerializer(serializers.Serializer):
@@ -54,18 +57,19 @@ class GameSerializer(serializers.Serializer):
     is_final_round = SerializerMethodField()
     state = serializers.CharField()
     question = QuestionSerializer()
-    categories = SerializerMethodField()
+    themes = SerializerMethodField()
     players = PlayerSerializer(many=True)
-    button_won_by = SerializerMethodField()
+    answerer = SerializerMethodField()
+    name = serializers.ReadOnlyField(default='jeopardy')
 
-    def get_categories(self, model: Game):
-        return CategorySerializer(many=True).to_representation(model.get_categories())
+    def get_themes(self, model: Game):
+        return ThemeSerializer(many=True).to_representation(model.get_themes())
 
     def get_is_final_round(self, model: Game):
         return model.is_final_round()
 
-    def get_button_won_by(self, model: Game):
-        return model.button_won_by.id if model.button_won_by else None
+    def get_answerer(self, model: Game):
+        return model.answerer.id if model.answerer else None
 
     class Meta:
         model = Game

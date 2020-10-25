@@ -1,5 +1,7 @@
 import os
 
+from asgiref.sync import async_to_sync
+from channels.layers import get_channel_layer
 from django.conf import settings
 from django.core.exceptions import ObjectDoesNotExist
 from django.core.files.base import ContentFile
@@ -10,6 +12,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from common.utils import unzip, BadStateException
+from jeopardy.consumers import JeopardyConsumer
 from jeopardy.models import Game, Player
 from jeopardy.serializers import GameSerializer
 
@@ -51,6 +54,11 @@ class RegisterPlayerAPI(APIView):
             if game.state != Game.STATE_WAITING_FOR_PLAYERS or game.players.count() >= 3:
                 raise BadStateException()
             player = Player.objects.create(game=game, name=name)
+            channel_layer = get_channel_layer()
+            async_to_sync(channel_layer.group_send)(f'jeopardy_{game.token}', {
+                'type': 'game',
+                'message': GameSerializer().to_representation(game)
+            })
         return Response({
             'player_id': player.id,
             'game': GameSerializer().to_representation(game)
