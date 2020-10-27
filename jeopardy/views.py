@@ -1,4 +1,5 @@
 import os
+import shutil
 
 from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
@@ -11,7 +12,7 @@ from rest_framework.generics import get_object_or_404
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from common.utils import unzip, BadStateException
+from common.utils import unzip, BadStateException, BadFormatException
 from jeopardy.models import Game, Player
 from jeopardy.serializers import GameSerializer
 
@@ -31,8 +32,12 @@ class CreateGameAPI(APIView):
         finally:
             os.remove(file)
 
-        game.parse(os.path.join(settings.MEDIA_ROOT_JEOPARDY, game.token, 'content.xml'))
-        os.remove(os.path.join(settings.MEDIA_ROOT_JEOPARDY, game.token, 'content.xml'))
+        try:
+            game.parse(os.path.join(settings.MEDIA_ROOT_JEOPARDY, game.token, 'content.xml'))
+            os.remove(os.path.join(settings.MEDIA_ROOT_JEOPARDY, game.token, 'content.xml'))
+        except Exception as e:
+            shutil.rmtree(os.path.join(settings.MEDIA_ROOT_JEOPARDY, game.token), ignore_errors=True)
+            raise e
 
         if not os.listdir(os.path.join(settings.MEDIA_ROOT_JEOPARDY, game.token)):
             os.rmdir(os.path.join(settings.MEDIA_ROOT_JEOPARDY, game.token))

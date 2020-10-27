@@ -202,7 +202,7 @@ class Game(models.Model):
             if self.players.count() >= 3:
                 self.state = Game.STATE_THEMES_ALL
             else:
-                raise BadStateException()
+                raise BadStateException('Not enough players')
         elif self.state == self.STATE_THEMES_ALL:
             self.state = Game.STATE_ROUND_THEMES
         elif self.state == Game.STATE_ROUND_THEMES:
@@ -221,7 +221,7 @@ class Game(models.Model):
             pass
         elif self.state == self.STATE_FINAL_BETS:
             if self.is_final_round() and self.players.filter(balance__gt=0, final_bet__lte=0).exists():
-                raise BadStateException()
+                raise BadStateException('Wait for all bets')
             self.state = self.STATE_FINAL_QUESTION
         elif self.state == self.STATE_FINAL_QUESTION:
             # TODO: timer
@@ -231,14 +231,14 @@ class Game(models.Model):
         elif self.state == self.STATE_FINAL_END:
             self.state = self.STATE_GAME_END
         else:
-            raise BadStateException()
+            raise BadStateException('Bad state')
         self.save()
 
     @transaction.atomic(savepoint=False)
     def choose_question(self, question_id):
         question = Question.objects.get(id=question_id)
         if question.theme.game.id != self.id or question.is_processed:
-            raise BadStateException()
+            raise BadStateException('Question is already processed')
         self.state = Game.STATE_QUESTION if question.type == Question.TYPE_STANDARD else Game.STATE_QUESTION_EVENT
         self.question = question
         self.save()
@@ -248,7 +248,7 @@ class Game(models.Model):
         if self.state != self.STATE_QUESTION_EVENT:
             return
         if bet <= 0:
-            raise BadStateException()
+            raise BadStateException('Bet must be more than 0')
 
         self.question_bet = bet
         self.answerer = self.players.get(id=player_id)
@@ -326,8 +326,10 @@ class Game(models.Model):
         if self.state != self.STATE_FINAL_BETS:
             return
         player = self.players.get(id=player_id)
+        if bet <= 0:
+            raise BadStateException('Bet must be more than 0')
         if player.balance < bet:
-            raise BadStateException()
+            raise BadStateException('Not enough money')
         player.final_bet = bet
         player.save()
 
@@ -335,6 +337,8 @@ class Game(models.Model):
     def final_answer(self, player_id, answer):
         if self.state != self.STATE_FINAL_ANSWER:
             return
+        if not answer:
+            raise BadStateException('Answer cannot be empty')
         player = self.players.get(id=player_id)
         player.final_answer = answer
         player.save()

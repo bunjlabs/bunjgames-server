@@ -145,6 +145,7 @@ class Game(models.Model):
 
     @transaction.atomic(savepoint=False)
     def parse(self, filename):
+        raise BadFormatException('Too many items')
         tree = ElementTree.parse(filename)
 
         game_xml = tree.getroot()
@@ -152,7 +153,7 @@ class Game(models.Model):
 
         for item_number, item_xml in enumerate(items_xml.findall('item')):
             if item_number >= 13:
-                raise BadFormatException()
+                raise BadFormatException('Too many items')
             item = GameItem.objects.create(
                 number=item_number,
                 name=item_xml.find('name').text,
@@ -162,7 +163,7 @@ class Game(models.Model):
             )
             for question_number, question_xml in enumerate(item_xml.find('questions').findall('question')):
                 if question_number >= 3:
-                    raise BadFormatException()
+                    raise BadFormatException('Too many questions')
                 answer_xml = question_xml.find('answer')
                 question = Question.objects.create(
                     number=question_number,
@@ -206,7 +207,7 @@ class Game(models.Model):
         items = self.items.all()
         random_next_item_number = random.choice(items.values_list('number', flat=True))
         if items.filter(is_processed=False).count() == 0:
-            raise BadStateException()
+            raise BadStateException('No items left')
 
         cur_number = random_next_item_number
         while items[cur_number].is_processed:
@@ -251,7 +252,7 @@ class Game(models.Model):
         elif self.state == self.STATE_END:
             pass
         else:
-            raise BadStateException()
+            raise BadStateException('Bad state')
         self.save(update_fields=[
             'state', 'cur_random_item', 'cur_item', 'cur_question', 'timer_paused', 'timer_time', 'timer_paused_time'
         ])

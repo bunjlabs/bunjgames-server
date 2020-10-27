@@ -4,16 +4,17 @@ import string
 import zipfile
 from urllib.parse import unquote
 
+from rest_framework.exceptions import APIException
 from django.conf import settings
 from hashids import Hashids
 
 
-class BadFormatException(Exception):
-    pass
+class BadFormatException(APIException):
+    status_code = 400
 
 
-class BadStateException(Exception):
-    pass
+class BadStateException(APIException):
+    status_code = 400
 
 
 def unzip(filename, extract_dir):
