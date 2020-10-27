@@ -16,11 +16,12 @@ class Game(models.Model):
     STATE_QUESTIONS = 'questions'
     STATE_QUESTION_EVENT = 'question_event'
     STATE_QUESTION = 'question'
+    STATE_ANSWER = 'answer'
     STATE_QUESTION_END = 'question_end'
     STATE_FINAL_THEMES = 'final_themes'
     STATE_FINAL_BETS = 'final_bets'
     STATE_FINAL_QUESTION = 'final_question'
-    STATE_FINAL_QUESTION_TIMER = 'final_question_timer'
+    STATE_FINAL_ANSWER = 'final_answer'
     STATE_FINAL_END = 'final_end'
     STATE_GAME_END = 'game_end'
 
@@ -31,11 +32,12 @@ class Game(models.Model):
         STATE_QUESTIONS,
         STATE_QUESTION_EVENT,
         STATE_QUESTION,
+        STATE_ANSWER,
         STATE_QUESTION_END,
         STATE_FINAL_THEMES,
         STATE_FINAL_BETS,
         STATE_FINAL_QUESTION,
-        STATE_FINAL_QUESTION_TIMER,
+        STATE_FINAL_ANSWER,
         STATE_FINAL_END,
         STATE_GAME_END,
     )
@@ -210,6 +212,8 @@ class Game(models.Model):
         elif self.state == self.STATE_QUESTION_EVENT:
             pass
         elif self.state == self.STATE_QUESTION:
+            self.state = self.STATE_ANSWER
+        elif self.state == self.STATE_ANSWER:
             pass
         elif self.state == self.STATE_QUESTION_END:
             self.process_question_end()
@@ -221,8 +225,8 @@ class Game(models.Model):
             self.state = self.STATE_FINAL_QUESTION
         elif self.state == self.STATE_FINAL_QUESTION:
             # TODO: timer
-            self.state = self.STATE_FINAL_QUESTION_TIMER
-        elif self.state == self.STATE_FINAL_QUESTION_TIMER:
+            self.state = self.STATE_FINAL_ANSWER
+        elif self.state == self.STATE_FINAL_ANSWER:
             self.state = self.STATE_FINAL_END
         elif self.state == self.STATE_FINAL_END:
             self.state = self.STATE_GAME_END
@@ -241,6 +245,8 @@ class Game(models.Model):
 
     @transaction.atomic(savepoint=False)
     def set_answerer_and_bet(self, player_id, bet):
+        if self.state != self.STATE_QUESTION_EVENT:
+            return
         if bet <= 0:
             raise BadStateException()
 
@@ -251,7 +257,7 @@ class Game(models.Model):
 
     @transaction.atomic(savepoint=False)
     def skip_question(self):
-        if self.state not in (self.STATE_QUESTION_EVENT, self.STATE_QUESTION):
+        if self.state not in (self.STATE_QUESTION_EVENT, self.STATE_QUESTION, self.STATE_ANSWER):
             return
 
         self.question_bet = 0
@@ -266,7 +272,7 @@ class Game(models.Model):
 
     @transaction.atomic(savepoint=False)
     def button_click(self, player_id):
-        if self.state != self.STATE_QUESTION or self.answerer is not None \
+        if self.state != self.STATE_ANSWER or self.answerer is not None \
                 or self.question.type != Question.TYPE_STANDARD:
             return
 
@@ -275,7 +281,7 @@ class Game(models.Model):
 
     @transaction.atomic(savepoint=False)
     def answer(self, is_right):
-        if self.state != self.STATE_QUESTION or self.answerer is None:
+        if self.state != self.STATE_ANSWER or self.answerer is None:
             return
 
         def question_end():
@@ -327,7 +333,7 @@ class Game(models.Model):
 
     @transaction.atomic(savepoint=False)
     def final_answer(self, player_id, answer):
-        if self.state != self.STATE_FINAL_QUESTION_TIMER:
+        if self.state != self.STATE_FINAL_ANSWER:
             return
         player = self.players.get(id=player_id)
         player.final_answer = answer

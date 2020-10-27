@@ -12,7 +12,6 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from common.utils import unzip, BadStateException
-from jeopardy.consumers import JeopardyConsumer
 from jeopardy.models import Game, Player
 from jeopardy.serializers import GameSerializer
 
@@ -46,7 +45,7 @@ class RegisterPlayerAPI(APIView):
 
     @transaction.atomic()
     def post(self, request):
-        token, name = request.data['token'], request.data['name']
+        token, name = request.data['token'], request.data['name'].upper().strip()
         game = get_object_or_404(Game, token=token)
         try:
             player = Player.objects.get(game=game, name=name)

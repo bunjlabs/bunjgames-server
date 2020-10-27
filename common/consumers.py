@@ -5,6 +5,8 @@ from asgiref.sync import async_to_sync
 from channels.generic.websocket import WebsocketConsumer
 from django.core.exceptions import ObjectDoesNotExist
 
+from common.utils import BadStateException, BadFormatException
+
 logger = logging.getLogger(__name__)
 
 
@@ -69,7 +71,11 @@ class Consumer(WebsocketConsumer):
                     'type': 'game',
                     'message': self.serialize_game(game)
                 })
-        except (KeyError, TypeError, ValueError) as e:
+        except (BadStateException, BadFormatException, KeyError, TypeError, ValueError) as e:
+            self.send(text_data=json.dumps({
+                'type': 'error',
+                'message': str(e)
+            }))
             logger.warning('Bad request: %s' % str(e))
 
     def intercom(self, event):
