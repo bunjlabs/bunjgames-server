@@ -22,7 +22,8 @@ class Game(models.Model):
     STATE_FINAL_BETS = 'final_bets'
     STATE_FINAL_QUESTION = 'final_question'
     STATE_FINAL_ANSWER = 'final_answer'
-    STATE_FINAL_END = 'final_end'
+    STATE_FINAL_PLAYER_ANSWER = 'final_player_answer'
+    STATE_FINAL_PLAYER_BET = 'final_player_bet'
     STATE_GAME_END = 'game_end'
 
     STATES = (
@@ -38,7 +39,8 @@ class Game(models.Model):
         STATE_FINAL_BETS,
         STATE_FINAL_QUESTION,
         STATE_FINAL_ANSWER,
-        STATE_FINAL_END,
+        STATE_FINAL_PLAYER_ANSWER,
+        STATE_FINAL_PLAYER_BET,
         STATE_GAME_END,
     )
 
@@ -88,6 +90,14 @@ class Game(models.Model):
             elif self.is_final_round():
                 self.state = Game.STATE_FINAL_THEMES
             self.save()
+
+    def next_final_end_state(self):
+        answerers = self.players.filter(final_bet__gt=0)
+        if answerers.count() > 0:
+            self.answerer = answerers.first()
+            self.state = self.STATE_FINAL_PLAYER_ANSWER
+        else:
+            self.state = self.STATE_GAME_END
 
     @staticmethod
     @transaction.atomic(savepoint=False)
@@ -224,12 +234,17 @@ class Game(models.Model):
                 raise BadStateException('Wait for all bets')
             self.state = self.STATE_FINAL_QUESTION
         elif self.state == self.STATE_FINAL_QUESTION:
-            # TODO: timer
             self.state = self.STATE_FINAL_ANSWER
         elif self.state == self.STATE_FINAL_ANSWER:
-            self.state = self.STATE_FINAL_END
-        elif self.state == self.STATE_FINAL_END:
-            self.state = self.STATE_GAME_END
+            self.next_final_end_state()
+        elif self.state == self.STATE_FINAL_PLAYER_ANSWER:
+            pass
+        elif self.state == self.STATE_FINAL_PLAYER_BET:
+            answerer = self.answerer
+            answerer.final_bet = 0
+            answerer.save()
+            self.answerer = None
+            self.next_final_end_state()
         else:
             raise BadStateException('Bad state')
         self.save()
@@ -342,6 +357,17 @@ class Game(models.Model):
         player = self.players.get(id=player_id)
         player.final_answer = answer
         player.save()
+
+    @transaction.atomic(savepoint=False)
+    def final_player_answer(self, is_right):
+        if self.state != self.STATE_FINAL_PLAYER_ANSWER:
+            return
+        answerer = self.answerer
+        answerer.balance += answerer.final_bet if is_right else -answerer.final_bet
+        answerer.save()
+
+        self.state = self.STATE_FINAL_PLAYER_BET
+        self.save()
 
     @transaction.atomic(savepoint=False)
     def set_balance(self, balance_list):

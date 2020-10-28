@@ -16,6 +16,7 @@ class JeopardyConsumer(Consumer):
             remove_final_theme=lambda game, theme_id: game.remove_final_theme(theme_id),
             final_bet=lambda game, player_id, bet: game.final_bet(player_id, bet),
             final_answer=lambda game, player_id, answer: game.final_answer(player_id, answer),
+            final_player_answer=lambda game, is_right: game.final_player_answer(is_right),
             set_balance=lambda game, balance_list: game.set_balance(balance_list),
             set_round=lambda game, round: game.set_round(round),
         )

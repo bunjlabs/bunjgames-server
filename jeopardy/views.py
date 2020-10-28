@@ -1,3 +1,4 @@
+import logging
 import os
 import shutil
 
@@ -15,6 +16,9 @@ from rest_framework.views import APIView
 from common.utils import unzip, BadStateException, BadFormatException
 from jeopardy.models import Game, Player
 from jeopardy.serializers import GameSerializer
+
+
+logger = logging.getLogger(__name__)
 
 
 class CreateGameAPI(APIView):
@@ -37,7 +41,10 @@ class CreateGameAPI(APIView):
             os.remove(os.path.join(settings.MEDIA_ROOT_JEOPARDY, game.token, 'content.xml'))
         except Exception as e:
             shutil.rmtree(os.path.join(settings.MEDIA_ROOT_JEOPARDY, game.token), ignore_errors=True)
-            raise e
+            logger.error(str(e))
+            if isinstance(e, BadFormatException) or isinstance(e, BadStateException):
+                raise e
+            raise BadFormatException("Bad game file")
 
         if not os.listdir(os.path.join(settings.MEDIA_ROOT_JEOPARDY, game.token)):
             os.rmdir(os.path.join(settings.MEDIA_ROOT_JEOPARDY, game.token))
@@ -51,12 +58,15 @@ class RegisterPlayerAPI(APIView):
     @transaction.atomic()
     def post(self, request):
         token, name = request.data['token'], request.data['name'].upper().strip()
-        game = get_object_or_404(Game, token=token)
+        try:
+            game = Game.objects.get(token=token)
+        except ObjectDoesNotExist:
+            raise BadStateException('Game not found')
         try:
             player = Player.objects.get(game=game, name=name)
         except ObjectDoesNotExist:
             if game.state != Game.STATE_WAITING_FOR_PLAYERS or game.players.count() >= 3:
-                raise BadStateException()
+                raise BadStateException('Game already started')
             player = Player.objects.create(game=game, name=name)
             channel_layer = get_channel_layer()
             async_to_sync(channel_layer.group_send)(f'jeopardy_{game.token}', {

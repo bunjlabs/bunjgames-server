@@ -145,7 +145,6 @@ class Game(models.Model):
 
     @transaction.atomic(savepoint=False)
     def parse(self, filename):
-        raise BadFormatException('Too many items')
         tree = ElementTree.parse(filename)
 
         game_xml = tree.getroot()

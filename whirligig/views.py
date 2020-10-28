@@ -1,3 +1,4 @@
+import logging
 import os
 import shutil
 
@@ -8,9 +9,12 @@ from django.db import transaction
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from common.utils import unzip
+from common.utils import unzip, BadFormatException, BadStateException
 from whirligig.models import Game
 from whirligig.serializers import GameSerializer
+
+
+logger = logging.getLogger(__name__)
 
 
 class CreateGameAPI(APIView):
@@ -33,7 +37,10 @@ class CreateGameAPI(APIView):
             os.remove(os.path.join(settings.MEDIA_ROOT_WHIRLIGIG, game.token, 'content.xml'))
         except Exception as e:
             shutil.rmtree(os.path.join(settings.MEDIA_ROOT_WHIRLIGIG, game.token), ignore_errors=True)
-            raise e
+            logger.error(str(e))
+            if isinstance(e, BadFormatException) or isinstance(e, BadStateException):
+                raise e
+            raise BadFormatException("Bad game file")
 
         if not os.listdir(os.path.join(settings.MEDIA_ROOT_WHIRLIGIG, game.token)):
             os.rmdir(os.path.join(settings.MEDIA_ROOT_WHIRLIGIG, game.token))
