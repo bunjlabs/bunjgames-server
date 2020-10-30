@@ -1,4 +1,4 @@
-Whirligig game file specification.
+# Whirligig game file specification.
 
 Zip archive file with structure:
  - content.xml
@@ -37,3 +37,14 @@ content.xml structure:
    ...
 </game>
 ~~~
+
+
+# Jeopardy
+
+game packs editor - https://vladimirkhil.com/si/siquester
+game packs - https://vladimirkhil.com/si/storage
+
+
+# ClubChat
+
+https://telegram.me/ClubChatBot?start=clubname

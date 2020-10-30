@@ -1,8 +1,15 @@
 django
 djangorestframework
 django-cors-headers
+django-sslserver
 channels
 channels-redis
-psycopg2-binary
 daphne
+psycopg2-binary
+
+
+telegram
+python-telegram-bot[socks]
+
+requests
 hashids

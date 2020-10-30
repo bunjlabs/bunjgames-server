@@ -4,12 +4,8 @@ from pathlib import Path
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve(strict=True).parent.parent
 
-
-# Quick-start development settings - unsuitable for production
-# See https://docs.djangoproject.com/en/3.1/howto/deployment/checklist/
-
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = os.environ.get('BUNJGAMES_SECRET_KEY', 'elo+2nn_^(*u8a(-e1s9u!bd75_!3h3*6+nzxm#a-kwn*!9$%y')
+SECRET_KEY = os.environ.get('BUNJGAMES_SECRET_KEY', '')
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.environ.get('BUNJGAMES_DEBUG', 'False').lower() != 'false'
@@ -26,11 +22,12 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'rest_framework',
+    'corsheaders',
+    'channels',
     'common',
     'whirligig',
     'jeopardy',
-    'corsheaders',
-    'channels',
+    'clubchat',
 ]
 
 MIDDLEWARE = [
@@ -152,3 +149,6 @@ MEDIA_ROOT_JEOPARDY = os.path.join(BASE_DIR, 'media', 'jeopardy')
 MEDIA_URL = '/media/'
 
 JEOPARDY_IS_POST_EVENT_REQUIRED = False
+
+CLUBCHAT_TELEGRAM_BOT_API_KEY = os.environ.get('CLUBCHAT_TELEGRAM_BOT_API_KEY', '')
+CLUBCHAT_TELEGRAM_BOT_TOKEN = os.environ.get('CLUBCHAT_TELEGRAM_BOT_TOKEN', '')

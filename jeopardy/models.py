@@ -1,6 +1,8 @@
 import datetime
 from xml.etree import ElementTree
 
+from asgiref.sync import async_to_sync
+from channels.layers import get_channel_layer
 from django.conf import settings
 from django.core.exceptions import ObjectDoesNotExist
 from django.db import models, transaction
@@ -11,7 +13,9 @@ from common.utils import generate_token, BadStateException
 
 class Game(models.Model):
     STATE_WAITING_FOR_PLAYERS = 'waiting_for_players'
+    STATE_INTRO = 'intro'
     STATE_THEMES_ALL = 'themes_all'
+    STATE_ROUND = 'round'
     STATE_ROUND_THEMES = 'round_themes'
     STATE_QUESTIONS = 'questions'
     STATE_QUESTION_EVENT = 'question_event'
@@ -28,7 +32,9 @@ class Game(models.Model):
 
     STATES = (
         STATE_WAITING_FOR_PLAYERS,
+        STATE_INTRO,
         STATE_THEMES_ALL,
+        STATE_ROUND,
         STATE_ROUND_THEMES,
         STATE_QUESTIONS,
         STATE_QUESTION_EVENT,
@@ -77,18 +83,16 @@ class Game(models.Model):
     def process_question_end(self):
         self.question.is_processed = True
         self.question.save()
-        if Question.objects.filter(theme__in=self.get_themes(), is_processed=False).count() > 3 * self.round:
+        if Question.objects.filter(theme__in=self.get_themes(), is_processed=False).count() > 0:
             self.question = None
-            self.state = Game.STATE_QUESTIONS
+            self.state = self.STATE_QUESTIONS
             self.save()
         else:
             self.question = None
-            self.state = Game.STATE_ROUND_THEMES
+            self.state = self.STATE_ROUND
             self.round += 1
             if not self.get_themes().exists():
-                self.state = Game.STATE_GAME_END
-            elif self.is_final_round():
-                self.state = Game.STATE_FINAL_THEMES
+                self.state = self.STATE_GAME_END
             self.save()
 
     def next_final_end_state(self):
@@ -116,6 +120,21 @@ class Game(models.Model):
         namespace = root.tag.replace('}package', '}')
 
         last_round = 0
+
+        def format_image_url(url: str):
+            if url and url.startswith('@'):
+                return '/Images' + url.replace('@', '/', 1)
+            return url
+
+        def format_audio_url(url: str):
+            if url and url.startswith('@'):
+                return '/Audio' + url.replace('@', '/', 1)
+            return url
+
+        def format_video_url(url: str):
+            if url and url.startswith('@'):
+                return '/Video' + url.replace('@', '/', 1)
+            return url
 
         for i, round in enumerate(root.find(namespace + 'rounds').findall(namespace + 'round')):
             last_round = i + 1
@@ -186,13 +205,13 @@ class Game(models.Model):
                     Question.objects.create(
                         custom_theme=custom_theme,
                         text=text,
-                        image=image,
-                        audio=audio,
-                        video=video,
+                        image=format_image_url(image),
+                        audio=format_audio_url(audio),
+                        video=format_video_url(video),
                         answer_text=post_text,
-                        answer_image=post_image,
-                        answer_audio=post_audio,
-                        answer_video=post_video,
+                        answer_image=format_image_url(post_image),
+                        answer_audio=format_audio_url(post_audio),
+                        answer_video=format_video_url(post_video),
                         value=question_price,
                         answer=right_answer,
                         comment=comment,
@@ -210,13 +229,20 @@ class Game(models.Model):
             return
         if self.state == self.STATE_WAITING_FOR_PLAYERS:
             if self.players.count() >= 3:
-                self.state = Game.STATE_THEMES_ALL
+                self.state = self.STATE_INTRO
             else:
                 raise BadStateException('Not enough players')
+        elif self.state == self.STATE_INTRO:
+            self.state = self.STATE_THEMES_ALL
         elif self.state == self.STATE_THEMES_ALL:
-            self.state = Game.STATE_ROUND_THEMES
-        elif self.state == Game.STATE_ROUND_THEMES:
-            self.state = Game.STATE_QUESTIONS
+            self.state = self.STATE_ROUND
+        elif self.state == self.STATE_ROUND:
+            if self.is_final_round():
+                self.state = self.STATE_FINAL_THEMES
+            else:
+                self.state = self.STATE_ROUND_THEMES
+        elif self.state == self.STATE_ROUND_THEMES:
+            self.state = self.STATE_QUESTIONS
         elif self.state == self.STATE_QUESTIONS:
             pass
         elif self.state == self.STATE_QUESTION_EVENT:
@@ -254,7 +280,7 @@ class Game(models.Model):
         question = Question.objects.get(id=question_id)
         if question.theme.game.id != self.id or question.is_processed:
             raise BadStateException('Question is already processed')
-        self.state = Game.STATE_QUESTION if question.type == Question.TYPE_STANDARD else Game.STATE_QUESTION_EVENT
+        self.state = self.STATE_QUESTION if question.type == Question.TYPE_STANDARD else self.STATE_QUESTION_EVENT
         self.question = question
         self.save()
 
@@ -267,7 +293,7 @@ class Game(models.Model):
 
         self.question_bet = bet
         self.answerer = self.players.get(id=player_id)
-        self.state = Game.STATE_QUESTION
+        self.state = self.STATE_QUESTION
         self.save()
 
     @transaction.atomic(savepoint=False)
@@ -280,10 +306,15 @@ class Game(models.Model):
 
         if self.question.answer_text or self.question.answer_image \
                 or self.question.answer_audio or self.question.answer_video:
-            self.state = Game.STATE_QUESTION_END
+            self.state = self.STATE_QUESTION_END
         else:
             self.process_question_end()
         self.save()
+        channel_layer = get_channel_layer()
+        async_to_sync(channel_layer.group_send)(f'jeopardy_{self.token}', {
+            'type': 'intercom',
+            'message': 'skip'
+        })
 
     @transaction.atomic(savepoint=False)
     def button_click(self, player_id):
@@ -332,7 +363,7 @@ class Game(models.Model):
 
         filtered_themes = self.get_themes().filter(is_removed=False)
         if filtered_themes.count() == 1:
-            self.state = Game.STATE_FINAL_BETS
+            self.state = self.STATE_FINAL_BETS
             self.question = filtered_themes.get().questions.get()
             self.save()
 
@@ -378,12 +409,10 @@ class Game(models.Model):
     @transaction.atomic(savepoint=False)
     def set_round(self, round):
         self.round = round
-        if self.is_final_round():
-            self.state = Game.STATE_FINAL_THEMES
-        elif self.get_themes().exists():
-            self.state = Game.STATE_ROUND_THEMES
+        if self.get_themes().exists():
+            self.state = self.STATE_ROUND
         else:
-            self.state = Game.STATE_GAME_END
+            self.state = self.STATE_GAME_END
         self.answerer = None
         self.question_bet = 0
         Question.objects.filter(theme__in=self.get_themes(), is_processed=True).update(is_processed=False)
