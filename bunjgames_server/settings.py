@@ -5,7 +5,7 @@ from pathlib import Path
 BASE_DIR = Path(__file__).resolve(strict=True).parent.parent
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = os.environ.get('BUNJGAMES_SECRET_KEY', '')
+SECRET_KEY = os.environ.get('BUNJGAMES_SECRET_KEY', '*')
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.environ.get('BUNJGAMES_DEBUG', 'False').lower() != 'false'
