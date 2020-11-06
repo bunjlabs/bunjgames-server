@@ -8,6 +8,7 @@ from django.utils import timezone
 
 from whirligig.models import Game as WhirligigGame
 from jeopardy.models import Game as JeopardyGame
+from weakest.models import Game as WeakestGame
 
 
 class Command(BaseCommand):
@@ -22,3 +23,5 @@ class Command(BaseCommand):
         for game in expired_jeopardy_games.iterator():
             shutil.rmtree(os.path.join(settings.MEDIA_ROOT_JEOPARDY, game.token), ignore_errors=True)
         expired_jeopardy_games.delete()
+
+        WeakestGame.objects.filter(expired__lt=timezone.now())

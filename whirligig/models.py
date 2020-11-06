@@ -64,7 +64,7 @@ class Game(models.Model):
         self.save(update_fields=['token'])
 
     def set_timer(self, t, save=False):
-        self.timer_paused = time == 0
+        self.timer_paused = t == 0
         self.timer_paused_time = 0
         self.timer_time = int(round((time.time() + t) * 1000))
         if save:

@@ -5,7 +5,7 @@ from pathlib import Path
 BASE_DIR = Path(__file__).resolve(strict=True).parent.parent
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = os.environ.get('BUNJGAMES_SECRET_KEY', '*')
+SECRET_KEY = os.environ.get('BUNJGAMES_SECRET_KEY', '*w')
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.environ.get('BUNJGAMES_DEBUG', 'False').lower() != 'false'
@@ -27,6 +27,7 @@ INSTALLED_APPS = [
     'common',
     'whirligig',
     'jeopardy',
+    'weakest',
     'clubchat',
 ]
 
@@ -146,6 +147,7 @@ STATIC_URL = '/static/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 MEDIA_ROOT_WHIRLIGIG = os.path.join(BASE_DIR, 'media', 'whirligig')
 MEDIA_ROOT_JEOPARDY = os.path.join(BASE_DIR, 'media', 'jeopardy')
+MEDIA_ROOT_WEAKEST = os.path.join(BASE_DIR, 'media', 'weakest')
 MEDIA_URL = '/media/'
 
 JEOPARDY_IS_POST_EVENT_REQUIRED = False

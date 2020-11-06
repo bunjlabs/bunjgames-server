@@ -5,5 +5,6 @@ from django.urls import path, include
 urlpatterns = [
     path('whirligig/', include('whirligig.urls')),
     path('jeopardy/', include('jeopardy.urls')),
+    path('weakest/', include('weakest.urls')),
     path('clubchat/', include('clubchat.urls')),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
