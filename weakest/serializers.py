@@ -9,6 +9,7 @@ class PlayerSerializer(serializers.Serializer):
     name = serializers.CharField()
     is_weak = serializers.BooleanField()
     weak = SerializerMethodField()
+    right_answers = serializers.IntegerField()
 
     def get_weak(self, model: Player):
         return model.weak.id if model.weak else None
@@ -35,7 +36,6 @@ class GameSerializer(serializers.Serializer):
     state = serializers.CharField()
     round = serializers.IntegerField()
     question = QuestionSerializer()
-    questions = SerializerMethodField()
     answerer = SerializerMethodField()
     weakest = SerializerMethodField()
     strongest = SerializerMethodField()
@@ -50,11 +50,6 @@ class GameSerializer(serializers.Serializer):
 
     def get_strongest(self, model: Game):
         return model.strongest.id if model.strongest else None
-
-    def get_questions(self, model: Game):
-        questions = Question.objects.none()
-        if model.state == model.STATE_FINAL_QUESTIONS:
-            questions = model.questions.filter(is_final=True)
 
     class Meta:
         model = Game
