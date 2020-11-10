@@ -17,6 +17,10 @@ class BadStateException(APIException):
     status_code = 400
 
 
+class NothingToDoException(APIException):
+    status_code = 400
+
+
 def unzip(filename, extract_dir):
     with zipfile.ZipFile(filename) as archive:
         for entry in archive.infolist():

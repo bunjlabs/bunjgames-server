@@ -7,7 +7,7 @@ from xml.etree import ElementTree
 
 from django.db import models, transaction
 
-from common.utils import generate_token, BadFormatException, BadStateException
+from common.utils import generate_token, BadFormatException, BadStateException, NothingToDoException
 
 
 class Game(models.Model):
@@ -66,7 +66,7 @@ class Game(models.Model):
     def set_timer(self, t, save=False):
         self.timer_paused = t == 0
         self.timer_paused_time = 0
-        self.timer_time = int(round((time.time() + t) * 1000))
+        self.timer_time = int(round((time.time() + t) * 1000)) if t > 0 else 0
         if save:
             self.save(update_fields=['timer_paused', 'timer_paused_time', 'timer_time'])
 
@@ -93,7 +93,7 @@ class Game(models.Model):
     @transaction.atomic(savepoint=False)
     def change_timer(self, paused):
         if self.state != self.STATE_QUESTION_DISCUSSION:
-            return
+            raise NothingToDoException()
         if paused and not self.timer_paused:
             self.timer_paused_time = int(round(time.time() * 1000))
         elif not paused and self.timer_paused:
@@ -104,44 +104,47 @@ class Game(models.Model):
 
     @transaction.atomic(savepoint=False)
     def answer_correct(self, is_correct):
-        if self.state == self.STATE_RIGHT_ANSWER:
-            self.connoisseurs_score += 1 if is_correct else 0
-            self.viewers_score += 0 if is_correct else 1
+        if self.state != self.STATE_RIGHT_ANSWER:
+            raise NothingToDoException()
+        self.connoisseurs_score += 1 if is_correct else 0
+        self.viewers_score += 0 if is_correct else 1
 
-            item = self.items.get(number=self.cur_item)
-            question = item.questions.get(number=self.cur_question)
-            question.is_processed = True
-            question.save()
+        item = self.items.get(number=self.cur_item)
+        question = item.questions.get(number=self.cur_question)
+        question.is_processed = True
+        question.save()
 
-            if not is_correct or self.cur_question == item.questions.count() - 1:
-                item.is_processed = True
-                item.save()
-                self.cur_random_item = None
-                self.cur_item = None
-                self.cur_question = None
-                if self.connoisseurs_score == self.MAX_SCORE or self.viewers_score == self.MAX_SCORE \
-                        or not self.items.filter(is_processed=False).exists():
-                    self.expired = timezone.now() + datetime.timedelta(minutes=10)
-                    self.state = self.STATE_END
-                else:
-                    self.state = self.STATE_QUESTION_END
+        if not is_correct or self.cur_question == item.questions.count() - 1:
+            item.is_processed = True
+            item.save()
+            self.cur_random_item = None
+            self.cur_item = None
+            self.cur_question = None
+            if self.connoisseurs_score == self.MAX_SCORE or self.viewers_score == self.MAX_SCORE \
+                    or not self.items.filter(is_processed=False).exists():
+                self.expired = timezone.now() + datetime.timedelta(minutes=10)
+                self.state = self.STATE_END
             else:
-                self.cur_question += 1
-                self.state = self.STATE_QUESTION_START
+                self.state = self.STATE_QUESTION_END
+        else:
+            self.cur_question += 1
+            self.state = self.STATE_QUESTION_START
 
-            self.save()
+        self.save()
 
     @transaction.atomic(savepoint=False)
     def extra_minute(self):
-        if self.state == self.STATE_ANSWER:
-            self.state = self.STATE_EXTRA_MINUTE
-            self.save()
+        if self.state != self.STATE_ANSWER:
+            raise NothingToDoException()
+        self.state = self.STATE_EXTRA_MINUTE
+        self.save()
 
     @transaction.atomic(savepoint=False)
     def club_help(self):
-        if self.state == self.STATE_ANSWER:
-            self.state = self.STATE_CLUB_HELP
-            self.save()
+        if self.state != self.STATE_ANSWER:
+            raise NothingToDoException()
+        self.state = self.STATE_CLUB_HELP
+        self.save()
 
     @transaction.atomic(savepoint=False)
     def parse(self, filename):
@@ -216,7 +219,7 @@ class Game(models.Model):
     @transaction.atomic(savepoint=False)
     def next_state(self, from_state=None):
         if from_state is not None and self.state != from_state:
-            return
+            raise NothingToDoException()
         if self.state == self.STATE_START:
             self.state = self.STATE_INTRO
         elif self.state == self.STATE_INTRO:
@@ -243,13 +246,13 @@ class Game(models.Model):
             self.set_timer(20)
             self.state = self.STATE_ANSWER
         elif self.state == self.STATE_RIGHT_ANSWER:
-            pass
+            raise NothingToDoException()
         elif self.state == self.STATE_QUESTION_END:
             self.cur_random_item, self.cur_item = self.randomise_next_item()
             self.cur_question = 0
             self.state = self.STATE_QUESTION_WHIRLIGIG
         elif self.state == self.STATE_END:
-            pass
+            raise NothingToDoException()
         else:
             raise BadStateException('Bad state')
         self.save(update_fields=[

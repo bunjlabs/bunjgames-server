@@ -6,7 +6,7 @@ from django.db import models, transaction
 from django.db.models import Count
 from django.utils import timezone
 
-from common.utils import generate_token, BadFormatException, BadStateException
+from common.utils import generate_token, BadFormatException, BadStateException, NothingToDoException
 
 
 class Game(models.Model):
@@ -172,7 +172,7 @@ class Game(models.Model):
     @transaction.atomic(savepoint=False)
     def next_state(self, from_state=None):
         if from_state is not None and self.state != from_state:
-            return
+            raise NothingToDoException()
         if self.state == self.STATE_WAITING_FOR_PLAYERS:
             if self.players.count() >= 3:
                 self.state = self.STATE_INTRO
@@ -187,7 +187,7 @@ class Game(models.Model):
         elif self.state == self.STATE_QUESTIONS:
             self.round_end()
         elif self.state == self.STATE_WEAKEST_CHOOSE:
-            pass
+            raise NothingToDoException()
         elif self.state == self.STATE_WEAKEST_REVEAL:
             weakest = self.weakest
             weakest.is_weak = True
@@ -201,11 +201,11 @@ class Game(models.Model):
                 self.state = self.STATE_FINAL
                 self.next_round()
         elif self.state == self.STATE_FINAL:
-            pass
+            raise NothingToDoException()
         elif self.state == self.STATE_FINAL_QUESTIONS:
-            pass
+            raise NothingToDoException()
         elif self.state == self.STATE_END:
-            pass
+            raise NothingToDoException()
         else:
             raise BadStateException('Bad state')
         self.save()
@@ -213,9 +213,9 @@ class Game(models.Model):
     @transaction.atomic(savepoint=False)
     def save_bank(self, force=False):
         if self.state != self.STATE_QUESTIONS:
-            return
+            raise NothingToDoException()
         if not force and self.bank_timer < time.time() * 1000:
-            return
+            raise NothingToDoException()
         player = self.answerer
         player.bank_income += self.tmp_score if self.bank + self.tmp_score <= 40 else 40 - self.bank
         player.save()
@@ -229,7 +229,7 @@ class Game(models.Model):
     @transaction.atomic(savepoint=False)
     def answer_correct(self, is_correct):
         if self.state not in (self.STATE_QUESTIONS, self.STATE_FINAL_QUESTIONS):
-            return
+            raise NothingToDoException()
         if is_correct:
             player = self.answerer
             player.right_answers += 1
@@ -269,7 +269,7 @@ class Game(models.Model):
     @transaction.atomic(savepoint=False)
     def select_weakest(self, player_id, weakest_id):
         if self.state != self.STATE_WEAKEST_CHOOSE:
-            return
+            raise NothingToDoException()
         player = self.players.get(id=player_id)
         player.weak = self.players.get(id=weakest_id)
         if player.is_weak or player.weak.is_weak:
@@ -283,7 +283,7 @@ class Game(models.Model):
     @transaction.atomic(savepoint=False)
     def select_final_answerer(self, player_id):
         if self.state != self.STATE_FINAL:
-            return
+            raise NothingToDoException()
         answerer = self.players.get(id=player_id)
         self.state = self.STATE_FINAL_QUESTIONS
         self.next_question(answerer=answerer)

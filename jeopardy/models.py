@@ -8,7 +8,7 @@ from django.core.exceptions import ObjectDoesNotExist
 from django.db import models, transaction
 from django.utils import timezone
 
-from common.utils import generate_token, BadStateException
+from common.utils import generate_token, BadStateException, NothingToDoException
 
 
 class Game(models.Model):
@@ -226,7 +226,7 @@ class Game(models.Model):
     @transaction.atomic(savepoint=False)
     def next_state(self, from_state):
         if from_state is not None and self.state != from_state:
-            return
+            raise NothingToDoException()
         if self.state == self.STATE_WAITING_FOR_PLAYERS:
             if self.players.count() >= 3:
                 self.state = self.STATE_INTRO
@@ -244,17 +244,17 @@ class Game(models.Model):
         elif self.state == self.STATE_ROUND_THEMES:
             self.state = self.STATE_QUESTIONS
         elif self.state == self.STATE_QUESTIONS:
-            pass
+            raise NothingToDoException()
         elif self.state == self.STATE_QUESTION_EVENT:
-            pass
+            raise NothingToDoException()
         elif self.state == self.STATE_QUESTION:
             self.state = self.STATE_ANSWER
         elif self.state == self.STATE_ANSWER:
-            pass
+            raise NothingToDoException()
         elif self.state == self.STATE_QUESTION_END:
             self.process_question_end()
         elif self.state == self.STATE_FINAL_THEMES:
-            pass
+            raise NothingToDoException()
         elif self.state == self.STATE_FINAL_BETS:
             if self.is_final_round() and self.players.filter(balance__gt=0, final_bet__lte=0).exists():
                 raise BadStateException('Wait for all bets')
@@ -264,7 +264,7 @@ class Game(models.Model):
         elif self.state == self.STATE_FINAL_ANSWER:
             self.next_final_end_state()
         elif self.state == self.STATE_FINAL_PLAYER_ANSWER:
-            pass
+            raise NothingToDoException()
         elif self.state == self.STATE_FINAL_PLAYER_BET:
             answerer = self.answerer
             answerer.final_bet = 0
@@ -287,7 +287,7 @@ class Game(models.Model):
     @transaction.atomic(savepoint=False)
     def set_answerer_and_bet(self, player_id, bet):
         if self.state != self.STATE_QUESTION_EVENT:
-            return
+            raise NothingToDoException()
         if bet <= 0:
             raise BadStateException('Bet must be more than 0')
 
@@ -299,7 +299,7 @@ class Game(models.Model):
     @transaction.atomic(savepoint=False)
     def skip_question(self):
         if self.state not in (self.STATE_QUESTION_EVENT, self.STATE_QUESTION, self.STATE_ANSWER):
-            return
+            raise NothingToDoException()
 
         self.question_bet = 0
         self.answerer = None
@@ -320,7 +320,7 @@ class Game(models.Model):
     def button_click(self, player_id):
         if self.state != self.STATE_ANSWER or self.answerer is not None \
                 or self.question.type != Question.TYPE_STANDARD:
-            return
+            raise NothingToDoException()
 
         self.answerer = self.players.get(id=player_id)
         self.save()
@@ -328,7 +328,7 @@ class Game(models.Model):
     @transaction.atomic(savepoint=False)
     def answer(self, is_right):
         if self.state != self.STATE_ANSWER or self.answerer is None:
-            return
+            raise NothingToDoException()
 
         def question_end():
             self.question_bet = 0
@@ -356,7 +356,7 @@ class Game(models.Model):
     @transaction.atomic(savepoint=False)
     def remove_final_theme(self, theme_id):
         if self.state != self.STATE_FINAL_THEMES:
-            return
+            raise NothingToDoException()
         theme = self.get_themes().get(id=theme_id)
         theme.is_removed = True
         theme.save()
@@ -370,7 +370,7 @@ class Game(models.Model):
     @transaction.atomic(savepoint=False)
     def final_bet(self, player_id, bet):
         if self.state != self.STATE_FINAL_BETS:
-            return
+            raise NothingToDoException()
         player = self.players.get(id=player_id)
         if bet <= 0:
             raise BadStateException('Bet must be more than 0')
@@ -382,7 +382,7 @@ class Game(models.Model):
     @transaction.atomic(savepoint=False)
     def final_answer(self, player_id, answer):
         if self.state != self.STATE_FINAL_ANSWER:
-            return
+            raise NothingToDoException()
         if not answer:
             raise BadStateException('Answer cannot be empty')
         player = self.players.get(id=player_id)
@@ -392,7 +392,7 @@ class Game(models.Model):
     @transaction.atomic(savepoint=False)
     def final_player_answer(self, is_right):
         if self.state != self.STATE_FINAL_PLAYER_ANSWER:
-            return
+            raise NothingToDoException()
         answerer = self.answerer
         answerer.balance += answerer.final_bet if is_right else -answerer.final_bet
         answerer.save()
