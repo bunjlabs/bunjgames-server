@@ -13,8 +13,7 @@ class WhirligigConsumer(Consumer):
                 connoisseurs_score, viewers_score),
             change_timer=lambda game, paused: game.change_timer(paused),
             answer_correct=lambda game, is_correct: game.answer_correct(is_correct),
-            extra_minute=lambda game: game.extra_minute(),
-            club_help=lambda game: game.club_help(),
+            extra_time=lambda game: game.extra_time(),
         )
 
     @property

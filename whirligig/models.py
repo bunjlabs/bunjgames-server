@@ -18,8 +18,6 @@ class Game(models.Model):
     STATE_QUESTION_START = 'question_start'
     STATE_QUESTION_DISCUSSION = 'question_discussion'
     STATE_ANSWER = 'answer'
-    STATE_EXTRA_MINUTE = 'extra_minute'
-    STATE_CLUB_HELP = 'club_help'
     STATE_RIGHT_ANSWER = 'right_answer'
     STATE_QUESTION_END = 'question_end'
     STATE_END = 'end'
@@ -32,8 +30,6 @@ class Game(models.Model):
         STATE_QUESTION_START,
         STATE_QUESTION_DISCUSSION,
         STATE_ANSWER,
-        STATE_EXTRA_MINUTE,
-        STATE_CLUB_HELP,
         STATE_RIGHT_ANSWER,
         STATE_QUESTION_END,
         STATE_END,
@@ -133,17 +129,11 @@ class Game(models.Model):
         self.save()
 
     @transaction.atomic(savepoint=False)
-    def extra_minute(self):
+    def extra_time(self):
         if self.state != self.STATE_ANSWER:
             raise NothingToDoException()
-        self.state = self.STATE_EXTRA_MINUTE
-        self.save()
-
-    @transaction.atomic(savepoint=False)
-    def club_help(self):
-        if self.state != self.STATE_ANSWER:
-            raise NothingToDoException()
-        self.state = self.STATE_CLUB_HELP
+        self.set_timer(self.get_curr_item().get_time())
+        self.state = self.STATE_QUESTION_DISCUSSION
         self.save()
 
     @transaction.atomic(savepoint=False)
@@ -239,12 +229,6 @@ class Game(models.Model):
         elif self.state == self.STATE_ANSWER:
             self.clear_timer()
             self.state = self.STATE_RIGHT_ANSWER
-        elif self.state == self.STATE_EXTRA_MINUTE:
-            self.set_timer(60)
-            self.state = self.STATE_ANSWER
-        elif self.state == self.STATE_CLUB_HELP:
-            self.set_timer(20)
-            self.state = self.STATE_ANSWER
         elif self.state == self.STATE_RIGHT_ANSWER:
             raise NothingToDoException()
         elif self.state == self.STATE_QUESTION_END:
