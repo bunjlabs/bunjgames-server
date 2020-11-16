@@ -56,7 +56,7 @@ class RegisterPlayerAPI(APIView):
 
     @transaction.atomic()
     def post(self, request):
-        token, name = request.data['token'], request.data['name'].upper().strip()
+        token, name = request.data['token'].upper().strip(), request.data['name'].upper().strip()
         try:
             game = Game.objects.get(token=token)
         except ObjectDoesNotExist:
@@ -64,7 +64,7 @@ class RegisterPlayerAPI(APIView):
         try:
             player = Player.objects.get(game=game, name=name)
         except ObjectDoesNotExist:
-            if game.state != Game.STATE_WAITING_FOR_PLAYERS or game.players.count() >= 3:
+            if game.state != Game.STATE_WAITING_FOR_PLAYERS:
                 raise BadStateException('Game already started')
             player = Player.objects.create(game=game, name=name)
             channel_layer = get_channel_layer()

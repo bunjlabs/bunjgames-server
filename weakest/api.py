@@ -48,7 +48,7 @@ class RegisterPlayerAPI(APIView):
 
     @transaction.atomic()
     def post(self, request):
-        token, name = request.data['token'], request.data['name'].upper().strip()
+        token, name = request.data['token'].upper().strip(), request.data['name'].upper().strip()
         try:
             game = Game.objects.get(token=token)
         except ObjectDoesNotExist:

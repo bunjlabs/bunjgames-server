@@ -29,7 +29,7 @@ class Consumer(WebsocketConsumer):
         raise NotImplemented()
 
     def connect(self):
-        self.token = self.scope['url_route']['kwargs']['token']
+        self.token = self.scope['url_route']['kwargs']['token'].upper().strip()
         self.room_name = f'{self.game_name}_{self.token}'
 
         try:

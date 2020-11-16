@@ -229,6 +229,7 @@ class Game(models.Model):
         elif self.state == self.STATE_ANSWER:
             self.clear_timer()
             self.state = self.STATE_RIGHT_ANSWER
+
         elif self.state == self.STATE_RIGHT_ANSWER:
             raise NothingToDoException()
         elif self.state == self.STATE_QUESTION_END:

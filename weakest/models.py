@@ -114,7 +114,7 @@ class Game(models.Model):
         return scores[scores.index(self.tmp_score) + 1]
 
     def get_weakest(self):
-        if self.state == self.STATE_WEAKEST_CHOOSE:
+        if self.state == self.STATE_WEAKEST_REVEAL:
             return self.players.filter(is_weak=False).annotate(count=Count('weak_id')).order_by(
                 '-count', 'weak__right_answers', 'weak__bank_income'
             ).first().weak
@@ -237,8 +237,10 @@ class Game(models.Model):
             if self.state == self.STATE_QUESTIONS:
                 self.tmp_score = self.get_next_tmp_score()
                 if self.tmp_score == 40:
-                    self.save_bank()
+                    self.save_bank(force=True)
                     self.round_end()
+                    self.save()
+                    return
         elif self.state == self.STATE_QUESTIONS:
             self.tmp_score = 0
 
