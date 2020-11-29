@@ -10,6 +10,7 @@ class PlayerSerializer(serializers.Serializer):
     is_weak = serializers.BooleanField()
     weak = SerializerMethodField()
     right_answers = serializers.IntegerField()
+    bank_income = serializers.IntegerField()
 
     def get_weak(self, model: Player):
         return model.weak.id if model.weak else None

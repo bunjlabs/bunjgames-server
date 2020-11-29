@@ -45,6 +45,6 @@ game packs editor - https://vladimirkhil.com/si/siquester
 game packs - https://vladimirkhil.com/si/storage
 
 
-# ClubChat
+# ClubChat - in development
 
 https://telegram.me/ClubChatBot?start=clubname

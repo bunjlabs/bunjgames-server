@@ -278,14 +278,15 @@ class Game(models.Model):
             raise BadStateException('Cannot vote for weak player')
         player.save()
         if self.players.filter(is_weak=False, weak=None).count() == 0:
-            self.weakest = self.get_weakest()
             self.state = self.STATE_WEAKEST_REVEAL
+            self.weakest = self.get_weakest()
             self.save()
 
     @transaction.atomic(savepoint=False)
     def select_final_answerer(self, player_id):
         if self.state != self.STATE_FINAL:
             raise NothingToDoException()
+        self.get_players().update(right_answers=0)
         answerer = self.players.get(id=player_id)
         self.state = self.STATE_FINAL_QUESTIONS
         self.next_question(answerer=answerer)

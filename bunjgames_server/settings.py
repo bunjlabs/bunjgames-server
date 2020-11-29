@@ -28,7 +28,6 @@ INSTALLED_APPS = [
     'whirligig',
     'jeopardy',
     'weakest',
-    'clubchat',
 ]
 
 MIDDLEWARE = [

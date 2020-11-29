@@ -1,5 +1,6 @@
 import logging
 import os
+import shutil
 
 from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
@@ -39,6 +40,7 @@ class CreateGameAPI(APIView):
             raise BadFormatException("Bad game file")
         finally:
             os.remove(file)
+            shutil.rmtree(os.path.join(settings.MEDIA_ROOT_WEAKEST, game.token), ignore_errors=True)
 
         return Response(GameSerializer().to_representation(game))
 
