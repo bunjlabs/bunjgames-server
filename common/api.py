@@ -1,4 +1,8 @@
+import time
+
 from django.utils.functional import cached_property
+from rest_framework.response import Response
+from rest_framework.views import APIView
 
 from common.serializers import TokenSerializer
 
@@ -15,3 +19,10 @@ class TokenContextMixin:
         if hasattr(super(), "get_serializer_context"):
             context.update(super().get_serializer_context())
         return context
+
+
+class TimeAPI(APIView):
+    def get(self, request):
+        return Response(dict(
+            time=int(round(time.time() * 1000))
+        ))

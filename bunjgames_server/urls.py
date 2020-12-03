@@ -3,6 +3,7 @@ from django.conf.urls.static import static
 from django.urls import path, include
 
 urlpatterns = [
+    path('common/', include('common.urls')),
     path('whirligig/', include('whirligig.urls')),
     path('jeopardy/', include('jeopardy.urls')),
     path('weakest/', include('weakest.urls')),
