@@ -230,7 +230,7 @@ class Game(models.Model):
         if from_state is not None and self.state != from_state:
             raise NothingToDoException()
         if self.state == self.STATE_WAITING_FOR_PLAYERS:
-            if self.players.count() >= 3:
+            if self.players.count() >= 2:
                 self.state = self.STATE_INTRO
             else:
                 raise BadStateException('Not enough players')

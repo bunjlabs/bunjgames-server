@@ -102,7 +102,6 @@ class Game(models.Model):
     def answer_correct(self, is_correct):
         if self.state != self.STATE_RIGHT_ANSWER:
             raise NothingToDoException()
-        self.connoisseurs_score += 1 if is_correct else 0
         self.viewers_score += 0 if is_correct else 1
 
         item = self.items.get(number=self.cur_item)
@@ -111,6 +110,7 @@ class Game(models.Model):
         question.save()
 
         if not is_correct or self.cur_question == item.questions.count() - 1:
+            self.connoisseurs_score += 1 if is_correct else 0
             item.is_processed = True
             item.save()
             self.cur_random_item = None
@@ -229,7 +229,6 @@ class Game(models.Model):
         elif self.state == self.STATE_ANSWER:
             self.clear_timer()
             self.state = self.STATE_RIGHT_ANSWER
-
         elif self.state == self.STATE_RIGHT_ANSWER:
             raise NothingToDoException()
         elif self.state == self.STATE_QUESTION_END:
