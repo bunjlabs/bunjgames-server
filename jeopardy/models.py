@@ -156,6 +156,8 @@ class Game(models.Model):
                             for param in question.find(namespace + 'type').findall('param'):
                                 if param.get('name') == 'theme':
                                     custom_theme = param.text
+                    if not custom_theme:
+                        custom_theme = theme_name
                     text = ''
                     image = None
                     audio = None
