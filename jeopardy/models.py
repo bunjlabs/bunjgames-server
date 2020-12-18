@@ -1,5 +1,7 @@
 import datetime
+import random
 from xml.etree import ElementTree
+from threading import Timer
 
 from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
@@ -61,6 +63,8 @@ class Game(models.Model):
     round = models.IntegerField(default=1)
     question = models.ForeignKey('Question', on_delete=models.SET_NULL, null=True, related_name='+')
     answerer = models.ForeignKey('Player', on_delete=models.SET_NULL, null=True, related_name='+')
+    early_answerers = models.ManyToManyField('Player', related_name='+')
+    early_answerers_invoked = models.BooleanField(default=False)
     question_bet = models.IntegerField(default=0)
 
     def is_final_round(self):
@@ -252,6 +256,8 @@ class Game(models.Model):
         elif self.state == self.STATE_QUESTION_EVENT:
             raise NothingToDoException()
         elif self.state == self.STATE_QUESTION:
+            self.early_answerers_invoked = False
+            Timer(1.0, self.select_early_answerer).start()
             self.state = self.STATE_ANSWER
         elif self.state == self.STATE_ANSWER:
             raise NothingToDoException()
@@ -319,14 +325,34 @@ class Game(models.Model):
             'type': 'intercom',
             'message': 'skip'
         })
+    
+    @transaction.atomic(savepoint=False)
+    def select_early_answerer(self):
+        if len(self.early_answerers.all()) > 0:
+            self.answerer = random.choice(self.early_answerers.all())
+        self.early_answerers_invoked = True
+        self.early_answerers.clear()
+        self.save()
 
+        from jeopardy.serializers import GameSerializer
+        channel_layer = get_channel_layer()
+        async_to_sync(channel_layer.group_send)(f'jeopardy_{self.token}', {
+            'type': 'game',
+            'message': GameSerializer().to_representation(self)
+        })
+    
     @transaction.atomic(savepoint=False)
     def button_click(self, player_id):
         if self.state != self.STATE_ANSWER or self.answerer is not None \
                 or self.question.type != Question.TYPE_STANDARD:
             raise NothingToDoException()
-
-        self.answerer = self.players.get(id=player_id)
+        
+        if self.early_answerers_invoked:
+            self.answerer = self.players.get(id=player_id)
+        elif self.players.get(id=player_id) not in self.early_answerers.all():
+            self.early_answerers.add(self.players.get(id=player_id))
+        else:
+            raise NothingToDoException()
         self.save()
 
     @transaction.atomic(savepoint=False)
