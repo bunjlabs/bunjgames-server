@@ -1,9 +1,9 @@
 import datetime
+import operator
 import time
 from xml.etree import ElementTree
 
 from django.db import models, transaction
-from django.db.models import Count
 from django.utils import timezone
 
 from common.utils import generate_token, BadFormatException, BadStateException, NothingToDoException
@@ -115,9 +115,13 @@ class Game(models.Model):
 
     def get_weakest(self):
         if self.state == self.STATE_WEAKEST_REVEAL:
-            return self.players.filter(is_weak=False).annotate(count=Count('weak_id')).order_by(
-                '-count', 'weak__right_answers', 'weak__bank_income'
-            ).first().weak
+            weakest_dict = {}
+            for player in self.players.filter(is_weak=False):
+                if weakest_dict.get(player.weak_id) is None:
+                    weakest_dict[player.weak_id] = 0
+                weakest_dict[player.weak_id] = weakest_dict[player.weak_id] + 1
+
+            return Player.objects.get(pk=max(weakest_dict.items(), key=operator.itemgetter(1))[0])
         else:
             return self.players.filter(is_weak=False).order_by(
                 'right_answers', 'bank_income'

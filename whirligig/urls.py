@@ -9,5 +9,5 @@ urlpatterns = [
 ]
 
 websocket_urlpatterns = [
-    re_path(r'(?P<token>\w+)$', WhirligigConsumer),
+    re_path(r'(?P<token>\w+)$', WhirligigConsumer.as_asgi()),
 ]

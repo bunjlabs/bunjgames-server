@@ -10,5 +10,5 @@ urlpatterns = [
 ]
 
 websocket_urlpatterns = [
-    re_path(r'(?P<token>\w+)$', JeopardyConsumer),
+    re_path(r'(?P<token>\w+)$', JeopardyConsumer.as_asgi()),
 ]

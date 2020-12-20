@@ -10,5 +10,5 @@ urlpatterns = [
 ]
 
 websocket_urlpatterns = [
-    re_path(r'(?P<token>\w+)$', WeakestConsumer),
+    re_path(r'(?P<token>\w+)$', WeakestConsumer.as_asgi()),
 ]
