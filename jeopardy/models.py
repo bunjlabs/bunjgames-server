@@ -319,15 +319,17 @@ class Game(models.Model):
             'type': 'intercom',
             'message': 'skip'
         })
-    
-    @transaction.atomic(savepoint=False)
-    def button_click(self, player_id):
-        if self.state != self.STATE_ANSWER or self.answerer is not None \
-                or self.question.type != Question.TYPE_STANDARD:
-            raise NothingToDoException()
 
-        self.answerer = self.players.get(id=player_id)
-        self.save()
+    def button_click(self, player_id):
+        with transaction.atomic():
+            safe_game = Game.objects.select_for_update().get(id=self.id)
+            if safe_game.state != Game.STATE_ANSWER or safe_game.answerer is not None \
+                    or safe_game.question.type != Question.TYPE_STANDARD:
+                raise NothingToDoException()
+
+            safe_game.answerer = safe_game.players.get(id=player_id)
+            safe_game.save()
+        self.refresh_from_db()
 
     @transaction.atomic(savepoint=False)
     def answer(self, is_right):

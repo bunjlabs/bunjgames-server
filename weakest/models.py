@@ -1,9 +1,9 @@
 import datetime
-import operator
 import time
 from xml.etree import ElementTree
 
 from django.db import models, transaction
+from django.db.models import Count, Q, F, Subquery, OuterRef
 from django.utils import timezone
 
 from common.utils import generate_token, BadFormatException, BadStateException, NothingToDoException
@@ -115,13 +115,17 @@ class Game(models.Model):
 
     def get_weakest(self):
         if self.state == self.STATE_WEAKEST_REVEAL:
-            weakest_dict = {}
-            for player in self.players.filter(is_weak=False):
-                if weakest_dict.get(player.weak_id) is None:
-                    weakest_dict[player.weak_id] = 0
-                weakest_dict[player.weak_id] = weakest_dict[player.weak_id] + 1
-
-            return Player.objects.get(pk=max(weakest_dict.items(), key=operator.itemgetter(1))[0])
+            players = self.players.filter(is_weak=False)
+            return players.annotate(
+                count=Subquery(
+                    players.filter(
+                        weak_id=OuterRef('id')
+                    ).order_by().values('weak_id').annotate(c=Count('weak_id')).values('c'),
+                    output_field=models.IntegerField()
+                )
+            ).order_by(
+                '-count', 'right_answers', 'bank_income'
+            ).first()
         else:
             return self.players.filter(is_weak=False).order_by(
                 'right_answers', 'bank_income'
@@ -185,6 +189,7 @@ class Game(models.Model):
         elif self.state == self.STATE_INTRO:
             self.state = self.STATE_ROUND
         elif self.state == self.STATE_ROUND:
+            self.get_players().update(right_answers=0, bank_income=0)
             self.state = self.STATE_QUESTIONS
             self.set_timer(150 - (self.round - 1) * 10)
             self.next_question()
@@ -290,7 +295,7 @@ class Game(models.Model):
     def select_final_answerer(self, player_id):
         if self.state != self.STATE_FINAL:
             raise NothingToDoException()
-        self.get_players().update(right_answers=0)
+        self.get_players().update(right_answers=0, bank_income=0)
         answerer = self.players.get(id=player_id)
         self.state = self.STATE_FINAL_QUESTIONS
         self.next_question(answerer=answerer)
