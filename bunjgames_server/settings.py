@@ -28,6 +28,7 @@ INSTALLED_APPS = [
     'whirligig',
     'jeopardy',
     'weakest',
+    'feud',
 ]
 
 MIDDLEWARE = [
@@ -74,14 +75,14 @@ CHANNEL_LAYERS = {
 
 DATABASES = {
     'default': {
-        # 'ENGINE': 'django.db.backends.sqlite3',
-        # 'NAME': BASE_DIR / 'db.sqlite3',
-        'ENGINE': 'django.db.backends.postgresql_psycopg2',
-        'NAME': os.environ.get('BUNJGAMES_DATABASE_NAME', 'bunjgames'),
-        'USER': os.environ.get('BUNJGAMES_DATABASE_USER', 'postgres'),
-        'PASSWORD': os.environ.get('BUNJGAMES_DATABASE_PASSWORD', 'postgres'),
-        'HOST': os.environ.get('BUNJGAMES_DATABASE_HOST', '127.0.0.1'),
-        'PORT': int(os.environ.get('BUNJGAMES_DATABASE_PORT', '5432')),
+        'ENGINE': 'django.db.backends.sqlite3',
+        'NAME': BASE_DIR / 'db.sqlite3',
+        # 'ENGINE': 'django.db.backends.postgresql_psycopg2',
+        # 'NAME': os.environ.get('BUNJGAMES_DATABASE_NAME', 'bunjgames'),
+        # 'USER': os.environ.get('BUNJGAMES_DATABASE_USER', 'postgres'),
+        # 'PASSWORD': os.environ.get('BUNJGAMES_DATABASE_PASSWORD', 'postgres'),
+        # 'HOST': os.environ.get('BUNJGAMES_DATABASE_HOST', '127.0.0.1'),
+        # 'PORT': int(os.environ.get('BUNJGAMES_DATABASE_PORT', '5432')),
     }
 }
 
@@ -147,6 +148,7 @@ MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 MEDIA_ROOT_WHIRLIGIG = os.path.join(BASE_DIR, 'media', 'whirligig')
 MEDIA_ROOT_JEOPARDY = os.path.join(BASE_DIR, 'media', 'jeopardy')
 MEDIA_ROOT_WEAKEST = os.path.join(BASE_DIR, 'media', 'weakest')
+MEDIA_ROOT_FEUD = os.path.join(BASE_DIR, 'media', 'feud')
 MEDIA_URL = '/media/'
 
 JEOPARDY_IS_POST_EVENT_REQUIRED = False
