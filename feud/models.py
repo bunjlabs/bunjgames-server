@@ -79,7 +79,7 @@ class Game(models.Model):
         team2.save()
 
         self.question.is_processed = True
-        self.question.save()
+        self.question.save(update_fields=['is_processed'])
         if self.get_questions().count() > 0:
             self.round += 1
             self.state = self.STATE_ROUND
@@ -167,6 +167,7 @@ class Game(models.Model):
                 self.intercom('reveal')
         elif self.state == self.STATE_FINAL:
             self.state = self.STATE_FINAL_QUESTIONS
+            self.question = self.get_questions().first()
         elif self.state == self.STATE_FINAL_QUESTIONS:
             self.state = self.STATE_FINAL_QUESTIONS_REVEAL
         elif self.state == self.STATE_FINAL_QUESTIONS_REVEAL:
@@ -205,7 +206,7 @@ class Game(models.Model):
 
     @transaction.atomic(savepoint=False)
     def answer(self, is_correct, answer_id=None):
-        if self.state not in (self.STATE_BUTTON, self.STATE_ANSWERS):
+        if self.state not in (self.STATE_BUTTON, self.STATE_ANSWERS, self.STATE_FINAL_QUESTIONS) or not self.answerer:
             raise NothingToDoException()
 
         answerer = self.answerer
@@ -231,27 +232,28 @@ class Game(models.Model):
                 self.question.is_processed = True
                 self.question.save()
                 self.question = self.get_questions().first()
+                if self.question is None:
+                    self.state = self.STATE_FINAL_QUESTIONS_REVEAL
         elif self.state == self.STATE_BUTTON:
             self.answerer = opponent
+            self.intercom('gong')
         elif self.state == self.STATE_ANSWERS:
             answerer.strikes += 1
             answerer.save()
 
-            if self.state == self.STATE_BUTTON:
+            if opponent.strikes >= 3:
+                opponent.score += self.question.answers.filter(is_opened=True).aggregate(sum=Sum('value'))['sum']
+                opponent.save()
+                self.state = self.STATE_ANSWERS_REVEAL
+            elif answerer.strikes >= 3:
                 self.answerer = opponent
-            if self.state == self.STATE_ANSWERS:
-                if opponent.strikes >= 3:
-                    opponent.score += self.question.answers.filter(is_opened=True).aggregate(sum=Sum('value'))['sum']
-                    opponent.save()
-                    self.state = self.STATE_ANSWERS_REVEAL
-                elif answerer.strikes >= 3:
-                    self.answerer = opponent
-            if self.state == self.STATE_FINAL_QUESTIONS:
-                self.question.is_processed = True
-                self.question.save()
-                self.question = self.get_questions().first()
-        if not is_correct:
             self.intercom('gong')
+        elif self.state == self.STATE_FINAL_QUESTIONS:
+            self.question.is_processed = True
+            self.question.save()
+            self.question = self.get_questions().first()
+            if self.question is None:
+                self.state = self.STATE_FINAL_QUESTIONS_REVEAL
         self.save()
 
     class Meta:
