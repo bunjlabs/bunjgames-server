@@ -62,7 +62,7 @@ class Game(models.Model):
     def set_timer(self, t, save=False):
         self.timer_paused = t == 0
         self.timer_paused_time = 0
-        self.timer_time = int(round((time.time() + t) * 1000)) if t > 0 else 0
+        self.timer_time = int(round((time.time() + t + 2) * 1000)) if t > 0 else 0
         if save:
             self.save(update_fields=['timer_paused', 'timer_paused_time', 'timer_time'])
 
