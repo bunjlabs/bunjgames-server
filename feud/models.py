@@ -174,9 +174,10 @@ class Game(models.Model):
             self.state = self.STATE_FINAL if self.round == 1 else self.STATE_END
             if self.round == 1:
                 self.round += 1
-            self.answerer.final_score = self.questions.aggregate(sum=Sum('answers__value'))['sum']
+            self.answerer.final_score += self.questions.aggregate(sum=Sum('answers__value'))['sum']
             self.answerer.save()
             self.questions.filter(is_final=True, is_processed=True).update(is_processed=False)
+            Answer.objects.filter(question__game=self, question__is_final=True, is_opened=True).update(is_opened=False)
         elif self.state == self.STATE_END:
             raise NothingToDoException()
         else:
