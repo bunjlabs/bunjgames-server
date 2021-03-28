@@ -75,14 +75,14 @@ CHANNEL_LAYERS = {
 
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
-        # 'ENGINE': 'django.db.backends.postgresql_psycopg2',
-        # 'NAME': os.environ.get('BUNJGAMES_DATABASE_NAME', 'bunjgames'),
-        # 'USER': os.environ.get('BUNJGAMES_DATABASE_USER', 'postgres'),
-        # 'PASSWORD': os.environ.get('BUNJGAMES_DATABASE_PASSWORD', 'postgres'),
-        # 'HOST': os.environ.get('BUNJGAMES_DATABASE_HOST', '127.0.0.1'),
-        # 'PORT': int(os.environ.get('BUNJGAMES_DATABASE_PORT', '5432')),
+        # 'ENGINE': 'django.db.backends.sqlite3',
+        # 'NAME': BASE_DIR / 'db.sqlite3',
+        'ENGINE': 'django.db.backends.postgresql_psycopg2',
+        'NAME': os.environ.get('BUNJGAMES_DATABASE_NAME', 'bunjgames'),
+        'USER': os.environ.get('BUNJGAMES_DATABASE_USER', 'postgres'),
+        'PASSWORD': os.environ.get('BUNJGAMES_DATABASE_PASSWORD', 'postgres'),
+        'HOST': os.environ.get('BUNJGAMES_DATABASE_HOST', '127.0.0.1'),
+        'PORT': int(os.environ.get('BUNJGAMES_DATABASE_PORT', '5432')),
     }
 }
 
