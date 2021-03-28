@@ -21,6 +21,7 @@ class AnswerSerializer(serializers.Serializer):
     text = serializers.CharField()
     value = serializers.IntegerField()
     is_opened = serializers.BooleanField()
+    is_final_answered = serializers.BooleanField()
 
     class Meta:
         model = Answer
@@ -30,6 +31,7 @@ class QuestionSerializer(serializers.Serializer):
     id = serializers.IntegerField()
     text = serializers.CharField()
     answers = AnswerSerializer(many=True)
+    is_processed = serializers.BooleanField()
 
     class Meta:
         model = Question

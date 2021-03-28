@@ -164,20 +164,30 @@ class Game(models.Model):
             else:
                 answer.is_opened = True
                 answer.save()
-                self.intercom('reveal')
+                self.intercom('right')
         elif self.state == self.STATE_FINAL:
             self.state = self.STATE_FINAL_QUESTIONS
             self.question = self.get_questions().first()
         elif self.state == self.STATE_FINAL_QUESTIONS:
             self.state = self.STATE_FINAL_QUESTIONS_REVEAL
         elif self.state == self.STATE_FINAL_QUESTIONS_REVEAL:
-            self.state = self.STATE_FINAL if self.round == 1 else self.STATE_END
-            if self.round == 1:
-                self.round += 1
-            self.answerer.final_score += self.questions.aggregate(sum=Sum('answers__value'))['sum']
-            self.answerer.save()
-            self.questions.filter(is_final=True, is_processed=True).update(is_processed=False)
-            Answer.objects.filter(question__game=self, question__is_final=True, is_opened=True).update(is_opened=False)
+            question = self.questions.filter(is_final=True, is_processed=True).first()
+            if question is None:
+                self.state = self.STATE_FINAL if self.round == 1 else self.STATE_END
+                if self.round == 1:
+                    self.round += 1
+                self.answerer.final_score = Answer.objects.filter(
+                    question__game=self, is_final_answered=True
+                ).aggregate(sum=Sum('value'))['sum'] or 0
+                self.answerer.save()
+                self.questions.filter(is_final=True, is_processed=True).update(is_processed=False)
+                Answer.objects.filter(
+                    question__game=self, question__is_final=True, is_opened=True
+                ).update(is_opened=False)
+            else:
+                question.is_processed = False
+                question.save()
+                self.intercom('right')
         elif self.state == self.STATE_END:
             raise NothingToDoException()
         else:
@@ -194,6 +204,7 @@ class Game(models.Model):
 
             safe_game.answerer = safe_game.teams.get(id=team_id)
             safe_game.save(update_fields=['answerer'])
+        self.intercom('button')
         self.refresh_from_db()
 
     @transaction.atomic(savepoint=False)
@@ -220,15 +231,19 @@ class Game(models.Model):
                 raise NothingToDoException()
 
             answer.is_opened = True
+            if self.state == self.STATE_FINAL_QUESTIONS:
+                answer.is_final_answered = True
             answer.save()
 
             if self.state == self.STATE_BUTTON:
                 self.answerer = opponent
+                self.intercom('right')
             if self.state == self.STATE_ANSWERS:
                 if opponent.strikes >= 3 or self.question.answers.filter(is_opened=False).count() == 0:
                     answerer.score += self.question.answers.filter(is_opened=True).aggregate(sum=Sum('value'))['sum']
                     answerer.save()
                     self.state = self.STATE_ANSWERS_REVEAL
+                self.intercom('right')
             if self.state == self.STATE_FINAL_QUESTIONS:
                 self.question.is_processed = True
                 self.question.save()
@@ -237,7 +252,7 @@ class Game(models.Model):
                     self.state = self.STATE_FINAL_QUESTIONS_REVEAL
         elif self.state == self.STATE_BUTTON:
             self.answerer = opponent
-            self.intercom('gong')
+            self.intercom('wrong')
         elif self.state == self.STATE_ANSWERS:
             answerer.strikes += 1
             answerer.save()
@@ -248,7 +263,7 @@ class Game(models.Model):
                 self.state = self.STATE_ANSWERS_REVEAL
             elif answerer.strikes >= 3:
                 self.answerer = opponent
-            self.intercom('gong')
+            self.intercom('wrong')
         elif self.state == self.STATE_FINAL_QUESTIONS:
             self.question.is_processed = True
             self.question.save()
@@ -282,6 +297,7 @@ class Answer(models.Model):
     text = models.TextField()
     value = models.IntegerField()
     is_opened = models.BooleanField(default=False)
+    is_final_answered = models.BooleanField(default=False)
 
     class Meta:
         ordering = ['id']
