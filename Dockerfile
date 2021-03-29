@@ -1,6 +1,6 @@
 FROM python:3.8
 
-RUN apt-get update && apt install cron -y
+RUN apt-get update && apt-get install cron -y
 RUN pip install --upgrade pip
 
 WORKDIR /srv/server

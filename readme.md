@@ -43,8 +43,3 @@ content.xml structure:
 
 game packs editor - https://vladimirkhil.com/si/siquester
 game packs - https://vladimirkhil.com/si/storage
-
-
-# ClubChat - in development
-
-https://telegram.me/ClubChatBot?start=clubname

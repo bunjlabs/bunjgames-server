@@ -6,9 +6,5 @@ channels>=3.0.1
 daphne
 psycopg2-binary
 
-
-telegram
-python-telegram-bot[socks]
-
 requests
 hashids

@@ -143,7 +143,7 @@ class Game(models.Model):
                 theme_model = Theme.objects.create(name=theme_name, round=i+1, game=self)
                 if theme.find(namespace + 'questions') is None:
                     continue
-                for question in theme.find(namespace + 'questions').findall(namespace + 'question'):
+                for question in theme.find(namespace + 'questions').findall(namespace + 'question')[:8]:
                     question_price = question.get('price')
                     type = Question.TYPE_STANDARD
                     custom_theme = None
@@ -223,6 +223,20 @@ class Game(models.Model):
                         theme=theme_model
                     )
         self.last_round = last_round
+        for round in range(1, last_round+1):
+            max_questions = 0
+            for theme in self.themes.filter(round=round):
+                max_questions = max(theme.questions.count(), max_questions)
+            for theme in self.themes.filter(round=round):
+                for _ in range(max_questions - theme.questions.count()):
+                    Question.objects.create(
+                        answer='-',
+                        value=0,
+                        comment='-',
+                        type=Question.TYPE_STANDARD,
+                        theme=theme,
+                        is_processed=True
+                    )
         if self.themes.filter(round=last_round)[0].questions.count() == 1:
             self.final_round = last_round
         self.save()
