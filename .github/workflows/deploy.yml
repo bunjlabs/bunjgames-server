@@ -34,3 +34,4 @@ jobs:
           chown -R www-data:www-data /srv/bunjgames/media/*
           python /srv/bunjgames/manage.py migrate
           systemctl restart bunjgames
+          systemctl status bunjgames
