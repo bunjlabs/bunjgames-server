@@ -30,4 +30,7 @@ jobs:
         USERNAME: ${{ secrets.USERNAME }}
         PORT: ${{ secrets.PORT }}
         KEY: ${{ secrets.SSHKEY }}
-        script: chown -R www-data:www-data /srv/bunjgames/media/* && systemctl restart bunjgames
+        script: |
+          chown -R www-data:www-data /srv/bunjgames/media/*
+          python /srv/bunjgames/manage.py migrate
+          systemctl restart bunjgames
