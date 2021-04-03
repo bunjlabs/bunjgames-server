@@ -123,7 +123,7 @@ class Game(models.Model):
                     ).order_by().values('weak_id').annotate(c=Count('weak_id')).values('c'),
                     output_field=models.IntegerField()
                 )
-            ).order_by(
+            ).filter(count__isnull=False).order_by(
                 '-count', 'right_answers', 'bank_income'
             ).first()
         else:
